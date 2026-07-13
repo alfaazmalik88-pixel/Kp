@@ -1110,128 +1110,180 @@ fun PlayerCornerCard(
             LudoDiceStyle.COSMIC_SINGULARITY -> if (isCurrentTurn) Color(0xFF8B5CF6) else Color(0xFFA78BFA)
         }
 
-        Box(modifier = modifier.width(105.dp)) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(if (isCurrentTurn) 12.dp else 2.dp, RoundedCornerShape(14.dp))
-                    .border(
-                        width = if (isCurrentTurn) 2.5.dp else 1.dp,
-                        color = cardBorderColor,
-                        shape = RoundedCornerShape(14.dp)
-                    ),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBgColor)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                if (isRightSide) {
-                    // Right-side players: Dice / Pansa first (inner edge), then Team label, then User / Bot profile icon (outer edge)
-                    // 1. Beautiful interactive Dice / Pansa
-                    Box(
-                        modifier = Modifier
-                            .then(diceModifier)
-                            .size(40.dp)
-                            .shadow(if (isCurrentTurn) 6.dp else 2.dp, RoundedCornerShape(8.dp))
-                            .background(
-                                diceBg,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .border(
-                                width = if (isCurrentTurn) 2.5.dp else 1.dp,
-                                color = diceBorderColor,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable(enabled = canRoll) {
-                                viewModel.rollDice()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val rollValue = if (isCurrentTurn) (state.diceRoll ?: 1) else 1
-                        val rotation = if (isCurrentTurn && state.isRolling) diceRotationAngle else 0f
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .rotate(rotation),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            DiceFace(value = rollValue, tint = player.color.value, style = state.selectedDiceStyle, modifier = Modifier.fillMaxSize())
-                        }
-                    }
+        val isBottomPlayer = playerId == 2 || playerId == 3
 
-                    // 2. Compact Color dot indicating player color & type (Human vs Bot)
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(player.color.value, CircleShape)
-                            .border(1.5.dp, Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(13.dp)
-                        )
+        Box(modifier = modifier.width(105.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val displayName = if (player.id == 3) {
+                    when (state.selectedLanguage) {
+                        LudoLanguage.IN -> "आप"
+                        LudoLanguage.SA, LudoLanguage.AE, LudoLanguage.KW, LudoLanguage.QA, LudoLanguage.OM, LudoLanguage.BH -> "أنت"
+                        LudoLanguage.MX, LudoLanguage.ES -> "Tú"
+                        LudoLanguage.BR -> "Você"
+                        LudoLanguage.ID -> "Anda"
+                        LudoLanguage.TR -> "Siz"
+                        LudoLanguage.RU -> "Вы"
+                        else -> "You"
                     }
                 } else {
-                    // Left-side players: User / Bot profile icon first (outer edge), then Team label, then Dice / Pansa (inner edge)
-                    // 1. Compact Color dot indicating player color & type (Human vs Bot)
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(player.color.value, CircleShape)
-                            .border(1.5.dp, Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(13.dp)
-                        )
-                    }
+                    player.name
+                }
 
-                    // 2. Beautiful interactive Dice / Pansa
-                    Box(
+                if (!isBottomPlayer) {
+                    Text(
+                        text = displayName,
+                        color = if (isCurrentTurn) Color(0xFFFFD700) else Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier
-                            .then(diceModifier)
-                            .size(40.dp)
-                            .shadow(if (isCurrentTurn) 6.dp else 2.dp, RoundedCornerShape(8.dp))
-                            .background(
-                                diceBg,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .border(
-                                width = if (isCurrentTurn) 2.5.dp else 1.dp,
-                                color = diceBorderColor,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable(enabled = canRoll) {
-                                viewModel.rollDice()
-                            },
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(if (isCurrentTurn) 12.dp else 2.dp, RoundedCornerShape(14.dp))
+                        .border(
+                            width = if (isCurrentTurn) 2.5.dp else 1.dp,
+                            color = cardBorderColor,
+                            shape = RoundedCornerShape(14.dp)
+                        ),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBgColor)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val rollValue = if (isCurrentTurn) (state.diceRoll ?: 1) else 1
-                        val rotation = if (isCurrentTurn && state.isRolling) diceRotationAngle else 0f
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .rotate(rotation),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            DiceFace(value = rollValue, tint = player.color.value, style = state.selectedDiceStyle, modifier = Modifier.fillMaxSize())
+                        if (isRightSide) {
+                            // Right-side players: Dice / Pansa first (inner edge), then Team label, then User / Bot profile icon (outer edge)
+                            // 1. Beautiful interactive Dice / Pansa
+                            Box(
+                                modifier = Modifier
+                                    .then(diceModifier)
+                                    .size(40.dp)
+                                    .shadow(if (isCurrentTurn) 6.dp else 2.dp, RoundedCornerShape(8.dp))
+                                    .background(
+                                        diceBg,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .border(
+                                        width = if (isCurrentTurn) 2.5.dp else 1.dp,
+                                        color = diceBorderColor,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable(enabled = canRoll) {
+                                        viewModel.rollDice()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val rollValue = if (isCurrentTurn) (state.diceRoll ?: 1) else 1
+                                val rotation = if (isCurrentTurn && state.isRolling) diceRotationAngle else 0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .rotate(rotation),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    DiceFace(value = rollValue, tint = player.color.value, style = state.selectedDiceStyle, modifier = Modifier.fillMaxSize())
+                                }
+                            }
+
+                            // 2. Compact Color dot indicating player color & type (Human vs Bot)
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(player.color.value, CircleShape)
+                                    .border(1.5.dp, Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        } else {
+                            // Left-side players: User / Bot profile icon first (outer edge), then Team label, then Dice / Pansa (inner edge)
+                            // 1. Compact Color dot indicating player color & type (Human vs Bot)
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(player.color.value, CircleShape)
+                                    .border(1.5.dp, Color.White, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+
+                            // 2. Beautiful interactive Dice / Pansa
+                            Box(
+                                modifier = Modifier
+                                    .then(diceModifier)
+                                    .size(40.dp)
+                                    .shadow(if (isCurrentTurn) 6.dp else 2.dp, RoundedCornerShape(8.dp))
+                                    .background(
+                                        diceBg,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .border(
+                                        width = if (isCurrentTurn) 2.5.dp else 1.dp,
+                                        color = diceBorderColor,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable(enabled = canRoll) {
+                                        viewModel.rollDice()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val rollValue = if (isCurrentTurn) (state.diceRoll ?: 1) else 1
+                                val rotation = if (isCurrentTurn && state.isRolling) diceRotationAngle else 0f
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .rotate(rotation),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    DiceFace(value = rollValue, tint = player.color.value, style = state.selectedDiceStyle, modifier = Modifier.fillMaxSize())
+                                }
+                            }
                         }
                     }
                 }
+
+                if (isBottomPlayer) {
+                    Text(
+                        text = displayName,
+                        color = if (isCurrentTurn) Color(0xFFFFD700) else Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
-    }
     } else {
         // Subtle minimal placeholder dot for absent slot
         Box(
