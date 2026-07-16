@@ -126,8 +126,10 @@ object GeminiChatService {
         )
 
         try {
-            val response = api.generateContent(apiKey, request)
-            val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+            val response = kotlinx.coroutines.withTimeoutOrNull(3000L) {
+                api.generateContent(apiKey, request)
+            }
+            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
             if (!text.isNullOrEmpty()) {
                 Log.d(TAG, "Gemini reply: $text")
                 return@withContext text
@@ -170,8 +172,10 @@ object GeminiChatService {
         )
 
         try {
-            val response = api.generateContent(apiKey, request)
-            val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+            val response = kotlinx.coroutines.withTimeoutOrNull(3000L) {
+                api.generateContent(apiKey, request)
+            }
+            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
             if (!text.isNullOrEmpty()) {
                 Log.d(TAG, "Gemini reply to user: $text")
                 return@withContext text
@@ -300,8 +304,10 @@ object GeminiChatService {
         )
 
         try {
-            val response = api.generateContent(apiKey, request)
-            val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
+            val response = kotlinx.coroutines.withTimeoutOrNull(2500L) {
+                api.generateContent(apiKey, request)
+            }
+            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text?.trim()
             if (!text.isNullOrEmpty()) {
                 Log.d(TAG, "Gemini move choice: $text")
                 val digitOnly = text.filter { it.isDigit() }

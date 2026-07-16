@@ -131,15 +131,41 @@ object LudoCoordinates {
         }
 
         if (position == 57) {
-            // Reached center home. Let's arrange them nicely in the triangle!
-            val center = centerHomes[playerId] ?: (7 to 7)
-            val offset = when (tokenId) {
-                0 -> -0.2f to -0.2f
-                1 -> 0.2f to -0.2f
-                2 -> -0.2f to 0.2f
-                else -> 0.2f to 0.2f
+            // Reached center home. Arrange tokens beautifully inside their respective triangles!
+            return when (playerId) {
+                0 -> { // RED (left triangle)
+                    when (tokenId) {
+                        0 -> 6.8f to 6.2f
+                        1 -> 7.2f to 6.2f
+                        2 -> 6.9f to 6.6f
+                        else -> 7.1f to 6.6f
+                    }
+                }
+                1 -> { // GREEN (top triangle)
+                    when (tokenId) {
+                        0 -> 6.2f to 6.8f
+                        1 -> 6.2f to 7.2f
+                        2 -> 6.6f to 6.9f
+                        else -> 6.6f to 7.1f
+                    }
+                }
+                2 -> { // YELLOW (right triangle)
+                    when (tokenId) {
+                        0 -> 6.8f to 7.8f
+                        1 -> 7.2f to 7.8f
+                        2 -> 6.9f to 7.4f
+                        else -> 7.1f to 7.4f
+                    }
+                }
+                else -> { // BLUE (bottom triangle)
+                    when (tokenId) {
+                        0 -> 7.8f to 6.8f
+                        1 -> 7.8f to 7.2f
+                        2 -> 7.4f to 6.9f
+                        else -> 7.4f to 7.1f
+                    }
+                }
             }
-            return (center.first.toFloat() + offset.first) to (center.second.toFloat() + offset.second)
         }
 
         if (position in 52..56) {

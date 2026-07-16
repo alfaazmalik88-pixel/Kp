@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
     // Initialize user profile preferences and daily rewards
     viewModel.initPrefs(this)
     
+    // Pre-warm audio engine for instant low-latency dice roll sounds
+    LudoAudioEngine.prewarm()
+    
     // Initialize Mobile Ads SDK
     MobileAds.initialize(this) {
       loadInterstitialAd()
@@ -58,7 +61,7 @@ class MainActivity : ComponentActivity() {
       viewModel.uiState.collectLatest { state ->
         val adType = state.adType
         if (adType != null) {
-          if (adType == AdType.GAME_FINISH || adType == AdType.RESET) {
+          if (adType == AdType.GAME_FINISH || adType == AdType.RESET || adType == AdType.GAME_START) {
             val ad = mInterstitialAd
             if (ad != null) {
               mInterstitialAd = null // Consume immediately

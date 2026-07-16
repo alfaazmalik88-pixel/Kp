@@ -247,6 +247,7 @@ object LudoTranslations {
                     "ad_guaranteed_six" -> "अपनी अगली चाल में निश्चित रूप से 6 पाने के लिए एक छोटा विज्ञापन देख रहे हैं!"
                     "ad_extend_time" -> "अपने 1v1 मैच के समय को +5 मिनट बढ़ाने के लिए विज्ञापन देख रहे हैं!"
                     "ad_game_finish" -> "एक छोटे प्रायोजक विज्ञापन के बाद गेम से बाहर जा रहे हैं..."
+                    "ad_game_start" -> "एक छोटे प्रायोजक विज्ञापन के बाद मैच की तैयारी कर रहे हैं..."
                     "ad_reset" -> "एक छोटे प्रायोजक विज्ञापन के बाद मैच को फिर से शुरू कर रहे हैं..."
                     "ad_watching" -> "विज्ञापन देख रहे हैं..."
                     "reward_claims" -> "पुरस्कार का दावा %ds में..."
@@ -527,6 +528,7 @@ object LudoTranslations {
                     "ad_guaranteed_six" -> "Watching a short ad to claim a guaranteed 6 on your next roll!"
                     "ad_extend_time" -> "Watching a short ad to extend your 1v1 match timer by +5 minutes!"
                     "ad_game_finish" -> "Exiting gameplay after a short sponsor ad..."
+                    "ad_game_start" -> "Preparing your Ludo match after a short sponsor ad..."
                     "ad_reset" -> "Resetting match after a short sponsor ad..."
                     "ad_watching" -> "Watching ad..."
                     "reward_claims" -> "Reward claims in %ds..."
@@ -569,7 +571,8 @@ enum class AdType {
     EXTEND_TIME,
     GAME_FINISH,
     RESET,
-    WATCH_AD
+    WATCH_AD,
+    GAME_START
 }
 
 data class ChatMessage(
@@ -615,13 +618,67 @@ data class LudoState(
     val selectedDiceStyle: LudoDiceStyle = LudoDiceStyle.CLASSIC_DOTS,
     val unlockedTokenStyles: Set<LudoTokenStyle> = setOf(LudoTokenStyle.CLASSIC_PIN),
     val unlockedDiceStyles: Set<LudoDiceStyle> = setOf(LudoDiceStyle.CLASSIC_DOTS),
-    val selectedWagerAmount: Int = 500
+    val selectedWagerAmount: Int = 500,
+    val sixUseCount: Int = 0,
+    val sixCooldownEndTime: Long = 0L,
+    val videoUseCount: Int = 0,
+    val videoCooldownEndTime: Long = 0L,
+    val cooldownTick: Int = 0,
+    val movingTokenId: Int? = null,
+    val movingPlayerId: Int? = null
 )
 
 class LudoViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(LudoState())
     val uiState: StateFlow<LudoState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                delay(1000)
+                val now = System.currentTimeMillis()
+                var changed = false
+                val state = _uiState.value
+                var nextSixUse = state.sixUseCount
+                var nextSixEnd = state.sixCooldownEndTime
+                var nextVidUse = state.videoUseCount
+                var nextVidEnd = state.videoCooldownEndTime
+                
+                if (state.sixCooldownEndTime > 0L && now >= state.sixCooldownEndTime) {
+                    nextSixUse = 0
+                    nextSixEnd = 0L
+                    changed = true
+                }
+                if (state.videoCooldownEndTime > 0L && now >= state.videoCooldownEndTime) {
+                    nextVidUse = 0
+                    nextVidEnd = 0L
+                    changed = true
+                }
+                
+                if (changed) {
+                    _uiState.update {
+                        it.copy(
+                            sixUseCount = nextSixUse,
+                            sixCooldownEndTime = nextSixEnd,
+                            videoUseCount = nextVidUse,
+                            videoCooldownEndTime = nextVidEnd,
+                            cooldownTick = (it.cooldownTick + 1) % 100
+                        )
+                    }
+                    sharedPrefs?.edit()?.apply {
+                        putInt("six_use_count", nextSixUse)
+                        putLong("six_cooldown_end_time", nextSixEnd)
+                        putInt("video_use_count", nextVidUse)
+                        putLong("video_cooldown_end_time", nextVidEnd)
+                        apply()
+                    }
+                } else {
+                    _uiState.update { it.copy(cooldownTick = (it.cooldownTick + 1) % 100) }
+                }
+            }
+        }
+    }
 
     private var timerJob: kotlinx.coroutines.Job? = null
 
@@ -662,6 +719,18 @@ class LudoViewModel : ViewModel() {
         val currentDiceStr = prefs.getString("selected_dice_style", "CLASSIC_DOTS") ?: "CLASSIC_DOTS"
         val currentDice = try { LudoDiceStyle.valueOf(currentDiceStr) } catch(e: Exception) { LudoDiceStyle.CLASSIC_DOTS }
         
+        val sixUseCount = prefs.getInt("six_use_count", 0)
+        val sixCooldownEndTime = prefs.getLong("six_cooldown_end_time", 0L)
+        val videoUseCount = prefs.getInt("video_use_count", 0)
+        val videoCooldownEndTime = prefs.getLong("video_cooldown_end_time", 0L)
+        
+        val now = System.currentTimeMillis()
+        val finalSixUseCount = if (sixCooldownEndTime > 0L && now >= sixCooldownEndTime) 0 else sixUseCount
+        val finalSixCooldownEndTime = if (finalSixUseCount == 0) 0L else sixCooldownEndTime
+        
+        val finalVideoUseCount = if (videoCooldownEndTime > 0L && now >= videoCooldownEndTime) 0 else videoUseCount
+        val finalVideoCooldownEndTime = if (finalVideoUseCount == 0) 0L else videoCooldownEndTime
+
         _uiState.update { currentState ->
             currentState.copy(
                 username = username,
@@ -673,7 +742,11 @@ class LudoViewModel : ViewModel() {
                 unlockedTokenStyles = unlockedTokensSet.ifEmpty { setOf(LudoTokenStyle.CLASSIC_PIN) },
                 selectedTokenStyle = currentToken,
                 unlockedDiceStyles = unlockedDiceSet.ifEmpty { setOf(LudoDiceStyle.CLASSIC_DOTS) },
-                selectedDiceStyle = currentDice
+                selectedDiceStyle = currentDice,
+                sixUseCount = finalSixUseCount,
+                sixCooldownEndTime = finalSixCooldownEndTime,
+                videoUseCount = finalVideoUseCount,
+                videoCooldownEndTime = finalVideoCooldownEndTime
             )
         }
     }
@@ -902,7 +975,7 @@ class LudoViewModel : ViewModel() {
     fun startGame() {
         val mode = uiState.value.gameMode
         val lang = uiState.value.selectedLanguage
-        if (mode == LudoGameMode.ONE_VS_ONE) {
+        if (mode == LudoGameMode.ONE_VS_ONE || mode == LudoGameMode.VS_COMPUTER) {
             val wager = uiState.value.selectedWagerAmount
             if (uiState.value.coins < wager) {
                 val msg = LudoTranslations.getTranslation("not_enough_coins", lang)
@@ -916,6 +989,12 @@ class LudoViewModel : ViewModel() {
             sharedPrefs?.edit()?.putInt("coins", nextCoins)?.apply()
         }
 
+        // Trigger Interstitial/Simulated Ad when starting a match!
+        triggerAd(AdType.GAME_START)
+    }
+
+    private fun actuallyStartGame() {
+        val mode = uiState.value.gameMode
         val userColor = selectedUserColor.value
         val userIdx = 3 // Always index 3 (bottom-left corner) for Human!
         val playerCount = selectedPlayerCount.value
@@ -1026,28 +1105,7 @@ class LudoViewModel : ViewModel() {
 
         timerJob?.cancel()
         if (mode == LudoGameMode.ONE_VS_ONE) {
-            timerJob = viewModelScope.launch {
-                while (uiState.value.timeLeftSeconds > 0 && uiState.value.gamePhase == GamePhase.PLAYING) {
-                    delay(1000)
-                    var playWarning = false
-                    _uiState.update { currentState ->
-                        val nextSeconds = currentState.timeLeftSeconds - 1
-                        if (nextSeconds == 30 || nextSeconds in 1..5) {
-                            playWarning = true
-                        }
-                        currentState.copy(
-                            timeLeftSeconds = nextSeconds,
-                            isTimeWarningDialogShowing = if (nextSeconds == 30) true else currentState.isTimeWarningDialogShowing
-                        )
-                    }
-                    if (playWarning) {
-                        LudoAudioEngine.playAlert()
-                    }
-                }
-                if (uiState.value.timeLeftSeconds <= 0 && uiState.value.gamePhase == GamePhase.PLAYING) {
-                    _uiState.update { it.copy(isTimeUpDialogShowing = true, isTimeWarningDialogShowing = false) }
-                }
-            }
+            start1v1Timer()
         }
 
         if (mode == LudoGameMode.VS_COMPUTER) {
@@ -1063,6 +1121,32 @@ class LudoViewModel : ViewModel() {
         triggerBotIfNeeded()
     }
 
+    private fun start1v1Timer() {
+        timerJob?.cancel()
+        timerJob = viewModelScope.launch {
+            while (uiState.value.timeLeftSeconds > 0 && uiState.value.gamePhase == GamePhase.PLAYING) {
+                delay(1000)
+                var playWarning = false
+                _uiState.update { currentState ->
+                    val nextSeconds = currentState.timeLeftSeconds - 1
+                    if (nextSeconds == 30 || nextSeconds in 1..5) {
+                        playWarning = true
+                    }
+                    currentState.copy(
+                        timeLeftSeconds = nextSeconds,
+                        isTimeWarningDialogShowing = if (nextSeconds == 30) true else currentState.isTimeWarningDialogShowing
+                    )
+                }
+                if (playWarning) {
+                    LudoAudioEngine.playAlert()
+                }
+            }
+            if (uiState.value.timeLeftSeconds <= 0 && uiState.value.gamePhase == GamePhase.PLAYING) {
+                _uiState.update { it.copy(isTimeUpDialogShowing = true, isTimeWarningDialogShowing = false) }
+            }
+        }
+    }
+
     private fun endGameOnTimeOut() {
         val scoreMap = uiState.value.players.associateWith { player ->
             uiState.value.tokens.filter { it.playerId == player.id }.sumOf { it.position }
@@ -1071,7 +1155,7 @@ class LudoViewModel : ViewModel() {
         val isHumanWinner = winner?.type == PlayerType.HUMAN
 
         val nextCoins = if (isHumanWinner) {
-            val winBonus = if (uiState.value.gameMode == LudoGameMode.ONE_VS_ONE) {
+            val winBonus = if (uiState.value.gameMode == LudoGameMode.ONE_VS_ONE || uiState.value.gameMode == LudoGameMode.VS_COMPUTER) {
                 uiState.value.selectedWagerAmount * 2
             } else {
                 150
@@ -1130,8 +1214,12 @@ class LudoViewModel : ViewModel() {
         val state = _uiState.value
         if (state.gamePhase != GamePhase.PLAYING || state.hasRolled || state.isRolling || state.isMovingToken) return
 
+        val currentPlayer = getCurrentPlayer()
+
         viewModelScope.launch {
-            LudoAudioEngine.playDiceRoll()
+            if (currentPlayer?.type == PlayerType.BOT) {
+                LudoAudioEngine.playDiceRoll()
+            }
             _uiState.update { it.copy(isRolling = true, diceRoll = null) }
             
             // Dice roll animation effect (perfectly balanced speed and beautiful duration)
@@ -1177,7 +1265,7 @@ class LudoViewModel : ViewModel() {
                         consecutiveSixes = 0
                     )
                 }
-                delay(1200)
+                delay(if (currentPlayer.type == PlayerType.BOT) 150L else 1000L)
                 passTurn()
                 return
             }
@@ -1191,7 +1279,7 @@ class LudoViewModel : ViewModel() {
                     statusMessage = "🎲 ${currentPlayer.name} rolled a $roll. No valid moves possible!"
                 )
             }
-            delay(1200)
+            delay(if (currentPlayer.type == PlayerType.BOT) 150L else 1000L)
             passTurn()
         } else {
             // If player is Bot, make a decision automatically!
@@ -1204,7 +1292,7 @@ class LudoViewModel : ViewModel() {
                 if (roll == 6) {
                     triggerBotChat("ROLL_6", currentPlayer.id)
                 }
-                delay(800)
+                delay(100)
                 makeBotMove(validMoves)
             } else if (validMoves.size == 1) {
                 // Auto-move for human player if only 1 token can move!
@@ -1214,7 +1302,7 @@ class LudoViewModel : ViewModel() {
                         statusMessage = "🎲 You rolled a $roll! Auto-moving your only playable piece..."
                     )
                 }
-                delay(1200) // Clear delay so player sees what they rolled before it moves!
+                delay(600) // Clear delay so player sees what they rolled before it moves!
                 
                 // Double check that state hasn't changed or been reset while waiting
                 val currentState = _uiState.value
@@ -1265,23 +1353,45 @@ class LudoViewModel : ViewModel() {
     }
 
     private fun moveToken(token: Token, steps: Int) {
-        _uiState.update { it.copy(isMovingToken = true) }
+        _uiState.update { 
+            it.copy(
+                isMovingToken = true,
+                movingTokenId = token.id,
+                movingPlayerId = token.playerId
+            ) 
+        }
         LudoAudioEngine.playTokenMove()
         viewModelScope.launch {
             val startPos = token.position
             val targetPos = if (startPos == 0) 1 else startPos + steps
             val actualSteps = if (startPos == 0) 1 else steps
 
-            // Animate token steps (perfectly balanced speed - comfortable to follow)
-            var currentPos = startPos
-            for (step in 1..actualSteps) {
-                currentPos++
-                updateTokenPosition(token, currentPos)
-                delay(130) // Balanced hopping speed
-            }
+            val currentPlayer = getCurrentPlayer()
+            val isBot = currentPlayer?.type == PlayerType.BOT
+            // Computer/bot hops super fast (60ms), human hops at a comfortable, crisp speed (90ms)
+            val hopDelay = if (isBot) 60L else 90L
 
-            // Post-move check
-            handlePostMoveState(token.copy(position = targetPos), steps)
+            try {
+                var currentPos = startPos
+                for (step in 1..actualSteps) {
+                    currentPos++
+                    updateTokenPosition(token, currentPos)
+                    LudoAudioEngine.playTokenHop()
+                    delay(hopDelay)
+                }
+                // Post-move check
+                handlePostMoveState(token.copy(position = targetPos), steps)
+            } catch (e: Exception) {
+                android.util.Log.e("LudoViewModel", "Error while animating token move", e)
+                _uiState.update { 
+                    it.copy(
+                        isMovingToken = false,
+                        movingTokenId = null,
+                        movingPlayerId = null
+                    ) 
+                }
+                passTurn()
+            }
         }
     }
 
@@ -1312,11 +1422,17 @@ class LudoViewModel : ViewModel() {
             val playerTokens = state.tokens.filter { it.playerId == currentPlayer.id }
             val allCompleted = playerTokens.all { it.position == 57 }
             if (allCompleted) {
+                // Update players list with completed status
+                val updatedPlayers = state.players.map { p ->
+                    if (p.id == currentPlayer.id) p.copy(isCompleted = true) else p
+                }
+                _uiState.update { it.copy(players = updatedPlayers) }
+
                 // Player completed the board!
                 LudoAudioEngine.playVictory()
                 val isHumanWinner = currentPlayer.type == PlayerType.HUMAN
                 val nextCoins = if (isHumanWinner) {
-                    val winBonus = if (state.gameMode == LudoGameMode.ONE_VS_ONE) {
+                    val winBonus = if (state.gameMode == LudoGameMode.ONE_VS_ONE || state.gameMode == LudoGameMode.VS_COMPUTER) {
                         state.selectedWagerAmount * 2
                     } else {
                         150
@@ -1330,6 +1446,8 @@ class LudoViewModel : ViewModel() {
                     _uiState.update { 
                         it.copy(
                             isMovingToken = false,
+                            movingTokenId = null,
+                            movingPlayerId = null,
                             gamePhase = GamePhase.FINISHED,
                             winnerPlayerId = currentPlayer.id,
                             coins = nextCoins,
@@ -1341,6 +1459,8 @@ class LudoViewModel : ViewModel() {
                     _uiState.update { 
                         it.copy(
                             isMovingToken = false,
+                            movingTokenId = null,
+                            movingPlayerId = null,
                             gamePhase = GamePhase.FINISHED,
                             winnerPlayerId = currentPlayer.id,
                             statusMessage = "🏆🏆 CONGRATULATIONS! ${currentPlayer.name} has won the Ludo Match!"
@@ -1349,6 +1469,8 @@ class LudoViewModel : ViewModel() {
                 }
                 triggerBotChat("WINNER", currentPlayer.id)
                 return
+            } else {
+                LudoAudioEngine.playTokenReachedHome()
             }
         } else {
             // 2. Check for Capture (Cut opponent token)
@@ -1421,6 +1543,8 @@ class LudoViewModel : ViewModel() {
             _uiState.update { 
                 it.copy(
                     isMovingToken = false,
+                    movingTokenId = null,
+                    movingPlayerId = null,
                     hasRolled = false,
                     statusMessage = if (message.isNotBlank()) message else "🎲 Roll again, ${currentPlayer.name}!"
                 )
@@ -1455,6 +1579,8 @@ class LudoViewModel : ViewModel() {
             _uiState.update { 
                 it.copy(
                     isMovingToken = false,
+                    movingTokenId = null,
+                    movingPlayerId = null,
                     currentPlayerIdx = nextIdx,
                     hasRolled = false,
                     diceRoll = null,
@@ -1468,6 +1594,8 @@ class LudoViewModel : ViewModel() {
             _uiState.update { 
                 it.copy(
                     isMovingToken = false,
+                    movingTokenId = null,
+                    movingPlayerId = null,
                     gamePhase = GamePhase.FINISHED,
                     statusMessage = "Game completed!"
                 )
@@ -1479,7 +1607,8 @@ class LudoViewModel : ViewModel() {
         val nextPlayer = getCurrentPlayer() ?: return
         if (nextPlayer.type == PlayerType.BOT) {
             viewModelScope.launch {
-                delay(1000)
+                // Reduced from 350ms to 120ms for super-fast and snappy bot rolling
+                delay(120)
                 rollDice()
             }
         }
@@ -1534,8 +1663,8 @@ class LudoViewModel : ViewModel() {
 
         var chosenToken = fallbackToken
 
-        // 2. In VS_COMPUTER mode, let Gemini AI decide!
-        if (state.gameMode == LudoGameMode.VS_COMPUTER) {
+        // 2. In VS_COMPUTER mode, let Gemini AI decide! (Only if there are multiple choices, to save time/API calls!)
+        if (state.gameMode == LudoGameMode.VS_COMPUTER && validMoves.size > 1) {
             _uiState.update { 
                 it.copy(statusMessage = "🤖 Gemini AI is planning the best move for ${currentPlayer.name}...")
             }
@@ -1565,7 +1694,12 @@ class LudoViewModel : ViewModel() {
                     it.copy(statusMessage = "🤖 Gemini offline. Moving Token ${fallbackToken.id + 1}...")
                 }
             }
-            delay(1000)
+            delay(100)
+        } else if (validMoves.size == 1) {
+            _uiState.update { 
+                it.copy(statusMessage = "🤖 ${currentPlayer.name} has only one move. Moving Token ${fallbackToken.id + 1}...")
+            }
+            delay(100)
         }
 
         moveToken(chosenToken, diceRoll)
@@ -1626,9 +1760,24 @@ class LudoViewModel : ViewModel() {
                 AdType.GUARANTEED_SIX -> {
                     LudoAudioEngine.playTurnPass()
                     _uiState.update { currentState ->
+                        val nextUseCount = currentState.sixUseCount + 1
+                        val nextCooldownEndTime = if (nextUseCount >= 2) {
+                            System.currentTimeMillis() + 2 * 60 * 1000 // 2 minutes
+                        } else {
+                            currentState.sixCooldownEndTime
+                        }
+                        
+                        sharedPrefs?.edit()?.apply {
+                            putInt("six_use_count", nextUseCount)
+                            putLong("six_cooldown_end_time", nextCooldownEndTime)
+                            apply()
+                        }
+
                         currentState.copy(
                             nextRollIsSix = true,
-                            statusMessage = "🎉 Next roll is guaranteed to be a 6!"
+                            statusMessage = "🎉 Next roll is guaranteed to be a 6!",
+                            sixUseCount = nextUseCount,
+                            sixCooldownEndTime = nextCooldownEndTime
                         )
                     }
                 }
@@ -1642,16 +1791,35 @@ class LudoViewModel : ViewModel() {
                             statusMessage = "⏱ Match extended by 5 minutes!"
                         )
                     }
+                    start1v1Timer()
                 }
                 AdType.GAME_FINISH, AdType.RESET -> {
                     resetToSetup()
+                }
+                AdType.GAME_START -> {
+                    actuallyStartGame()
                 }
                 AdType.WATCH_AD -> {
                     LudoAudioEngine.playTurnPass()
                     addCoins(500)
                     _uiState.update { currentState ->
+                        val nextUseCount = currentState.videoUseCount + 1
+                        val nextCooldownEndTime = if (nextUseCount >= 2) {
+                            System.currentTimeMillis() + 30 * 60 * 1000 // 30 minutes
+                        } else {
+                            currentState.videoCooldownEndTime
+                        }
+
+                        sharedPrefs?.edit()?.apply {
+                            putInt("video_use_count", nextUseCount)
+                            putLong("video_cooldown_end_time", nextCooldownEndTime)
+                            apply()
+                        }
+
                         currentState.copy(
-                            statusMessage = "🎉 Ad watched! +500 Coins added!"
+                            statusMessage = "🎉 Ad watched! +500 Coins added!",
+                            videoUseCount = nextUseCount,
+                            videoCooldownEndTime = nextCooldownEndTime
                         )
                     }
                 }

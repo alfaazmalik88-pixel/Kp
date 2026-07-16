@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.*
+import com.example.audio.LudoAudioEngine
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -206,8 +207,18 @@ fun LudoBoard(
                     LudoBoardGrid(boardSize = boardSize, cellSize = cellSize, state = state)
 
                     // 2. Draw Tokens layered perfectly on top!
-                    // Group tokens by their actual position coordinates to stack/offset nicely
-                    val tokensGrouped = state.tokens.groupBy { token ->
+                    val activelyMovingToken = if (state.isMovingToken && state.movingTokenId != null && state.movingPlayerId != null) {
+                        state.tokens.firstOrNull { it.id == state.movingTokenId && it.playerId == state.movingPlayerId }
+                    } else null
+
+                    val stationaryTokens = if (activelyMovingToken != null) {
+                        state.tokens.filter { it.id != activelyMovingToken.id || it.playerId != activelyMovingToken.playerId }
+                    } else {
+                        state.tokens
+                    }
+
+                    // Group stationary tokens by their actual position coordinates to stack/offset nicely
+                    val tokensGrouped = stationaryTokens.groupBy { token ->
                         LudoCoordinates.getTokenCoordinates(token.playerId, token.id, token.position)
                     }
 
@@ -253,12 +264,29 @@ fun LudoBoard(
                                 Modifier.scale(pulseScale)
                             } else Modifier
 
+                            val isAtHome = token.position == 57
+                            val tokenSize = if (isAtHome) {
+                                cellSize * 0.45f
+                            } else if (tokenList.size > 1) {
+                                cellSize * 0.75f
+                            } else {
+                                cellSize * 0.9f
+                            }
+
+                            val offsetFraction = if (isAtHome) {
+                                0.275f
+                            } else if (tokenList.size > 1) {
+                                0.12f
+                            } else {
+                                0.05f
+                            }
+
                             Box(
                                 modifier = Modifier
-                                    .size(if (tokenList.size > 1) cellSize * 0.75f else cellSize * 0.9f)
+                                    .size(tokenSize)
                                     .offset(
-                                        x = cellSize * (c + if (tokenList.size > 1) 0.12f else 0.05f),
-                                        y = cellSize * (r + if (tokenList.size > 1) 0.12f else 0.05f)
+                                        x = cellSize * (c + offsetFraction),
+                                        y = cellSize * (r + offsetFraction)
                                     )
                                     .then(modifierWithPulse)
                                     .shadow(4.dp, CircleShape)
@@ -297,28 +325,113 @@ fun LudoBoard(
                                     }
 
                                     if (emoji != null) {
-                                        Text(text = emoji, fontSize = if (tokenList.size > 1) 10.sp else 14.sp)
+                                        Text(
+                                            text = emoji,
+                                            fontSize = if (isAtHome) 8.sp else if (tokenList.size > 1) 10.sp else 14.sp
+                                        )
                                         Text(
                                             text = "${token.id + 1}",
-                                            fontSize = if (tokenList.size > 1) 7.sp else 9.sp,
+                                            fontSize = if (isAtHome) 5.sp else if (tokenList.size > 1) 7.sp else 9.sp,
                                             fontWeight = FontWeight.Black,
                                             color = Color.White
                                         )
                                     } else {
                                         Box(
                                             modifier = Modifier
-                                                .size(if (tokenList.size > 1) cellSize * 0.35f else cellSize * 0.45f)
+                                                .size(if (isAtHome) cellSize * 0.25f else if (tokenList.size > 1) cellSize * 0.35f else cellSize * 0.45f)
                                                 .background(Color.White.copy(alpha = 0.5f), CircleShape)
                                                 .border(1.dp, Color.White, CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = "${token.id + 1}",
-                                                fontSize = if (tokenList.size > 1) 9.sp else 11.sp,
+                                                fontSize = if (isAtHome) 6.sp else if (tokenList.size > 1) 9.sp else 11.sp,
                                                 fontWeight = FontWeight.Black,
                                                 color = Color.Black
                                             )
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. Draw Actively Moving Token on top of everything!
+                    if (activelyMovingToken != null) {
+                        val coord = LudoCoordinates.getTokenCoordinates(
+                            activelyMovingToken.playerId,
+                            activelyMovingToken.id,
+                            activelyMovingToken.position
+                        )
+                        val r = coord.first
+                        val c = coord.second
+
+                        val isAtHome = activelyMovingToken.position == 57
+                        val tokenSize = if (isAtHome) cellSize * 0.45f else cellSize * 0.9f
+                        val offsetFraction = if (isAtHome) 0.275f else 0.05f
+
+                        Box(
+                            modifier = Modifier
+                                .size(tokenSize)
+                                .offset(
+                                    x = cellSize * (c + offsetFraction),
+                                    y = cellSize * (r + offsetFraction)
+                                )
+                                .shadow(6.dp, CircleShape)
+                                .background(activelyMovingToken.color.value, CircleShape)
+                                .border(
+                                    width = 2.dp,
+                                    color = Color.White,
+                                    shape = CircleShape
+                                )
+                                .testTag("moving_token_${activelyMovingToken.playerId}_${activelyMovingToken.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                val emoji = when (state.selectedTokenStyle) {
+                                    LudoTokenStyle.CLASSIC_PIN -> {
+                                        when (state.selectedTheme) {
+                                            LudoTheme.CLASSIC -> null
+                                            LudoTheme.COSMIC -> "🚀"
+                                            LudoTheme.ROYAL -> "👑"
+                                            LudoTheme.FOREST -> "🍃"
+                                            LudoTheme.CANDY -> "🍬"
+                                            LudoTheme.OCEAN -> "🐠"
+                                            LudoTheme.CYBERPUNK -> "🔌"
+                                            LudoTheme.EGYPT -> "🏺"
+                                        }
+                                    }
+                                    else -> state.selectedTokenStyle.emoji
+                                }
+
+                                if (emoji != null) {
+                                    Text(
+                                        text = emoji,
+                                        fontSize = if (isAtHome) 8.sp else 14.sp
+                                    )
+                                    Text(
+                                        text = "${activelyMovingToken.id + 1}",
+                                        fontSize = if (isAtHome) 5.sp else 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(if (isAtHome) cellSize * 0.25f else cellSize * 0.45f)
+                                            .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                                            .border(1.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${activelyMovingToken.id + 1}",
+                                            fontSize = if (isAtHome) 6.sp else 11.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.Black
+                                        )
                                     }
                                 }
                             }
@@ -352,7 +465,23 @@ fun LudoBoard(
                 if (state.gameMode == LudoGameMode.VS_COMPUTER || state.gameMode == LudoGameMode.ONE_VS_ONE) {
                     val currentPlayer = state.players.firstOrNull { it.id == state.currentPlayerIdx }
                     val isHumanTurn = currentPlayer?.type == PlayerType.HUMAN && !state.hasRolled && !state.isRolling && !state.isMovingToken
-                    val isEligibleForSix = isHumanTurn && !state.nextRollIsSix
+                    
+                    val now = System.currentTimeMillis()
+                    val isSixCooldownActive = state.sixCooldownEndTime > 0L && now < state.sixCooldownEndTime
+                    val isEligibleForSix = isHumanTurn && !state.nextRollIsSix && !isSixCooldownActive
+                    val btnEnabled = (isEligibleForSix || state.nextRollIsSix) && !isSixCooldownActive
+
+                    val getSixText = LudoTranslations.getTranslation("get_six", state.selectedLanguage)
+                    val buttonText = if (isSixCooldownActive) {
+                        val cooldownSecs = ((state.sixCooldownEndTime - now) / 1000).toInt().coerceAtLeast(0)
+                        val mins = cooldownSecs / 60
+                        val secs = cooldownSecs % 60
+                        String.format("⏳ %02d:%02d", mins, secs)
+                    } else if (state.nextRollIsSix) {
+                        LudoTranslations.getTranslation("six_active", state.selectedLanguage)
+                    } else {
+                        "$getSixText (${state.sixUseCount}/2)"
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -363,19 +492,19 @@ fun LudoBoard(
                     ) {
                         Card(
                             modifier = Modifier
-                                .width(110.dp)
+                                .width(115.dp)
                                 .height(26.dp)
-                                .shadow(if (isEligibleForSix || state.nextRollIsSix) 2.dp else 0.dp, RoundedCornerShape(13.dp))
-                                .clickable(enabled = isEligibleForSix || state.nextRollIsSix) {
+                                .shadow(if (btnEnabled) 2.dp else 0.dp, RoundedCornerShape(13.dp))
+                                .clickable(enabled = btnEnabled) {
                                     viewModel.triggerAd(AdType.GUARANTEED_SIX)
                                 },
                             shape = RoundedCornerShape(13.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (state.nextRollIsSix) Color(0xFF065F46) else if (isEligibleForSix) Color(0xFF1E1B4B) else Color(0xFF1E293B)
+                                containerColor = if (state.nextRollIsSix) Color(0xFF065F46) else if (isSixCooldownActive) Color(0xFF334155) else if (isEligibleForSix) Color(0xFF1E1B4B) else Color(0xFF1E293B)
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 width = 1.dp,
-                                color = if (state.nextRollIsSix) Color(0xFF34D399) else if (isEligibleForSix) Color(0xFFFFD700) else Color(0xFF475569)
+                                color = if (state.nextRollIsSix) Color(0xFF34D399) else if (isSixCooldownActive) Color(0xFF475569) else if (isEligibleForSix) Color(0xFFFFD700) else Color(0xFF475569)
                             )
                         ) {
                             Row(
@@ -385,17 +514,19 @@ fun LudoBoard(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                DiceSixIcon(
-                                    size = 12.dp,
-                                    isEnabled = isEligibleForSix || state.nextRollIsSix,
-                                    isNextRollSix = state.nextRollIsSix
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                if (!isSixCooldownActive) {
+                                    DiceSixIcon(
+                                        size = 12.dp,
+                                        isEnabled = btnEnabled,
+                                        isNextRollSix = state.nextRollIsSix
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
                                 Text(
-                                    text = if (state.nextRollIsSix) LudoTranslations.getTranslation("six_active", state.selectedLanguage) else LudoTranslations.getTranslation("get_six", state.selectedLanguage),
+                                    text = buttonText,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 9.sp,
-                                    color = if (isEligibleForSix || state.nextRollIsSix) Color.White else Color.White.copy(alpha = 0.5f)
+                                    color = if (btnEnabled) Color.White else Color.White.copy(alpha = 0.5f)
                                 )
                             }
                         }
@@ -459,6 +590,66 @@ fun LudoBoard(
                                     color = Color.White
                                 )
                             )
+
+                            val winBonus = if (state.gameMode == LudoGameMode.ONE_VS_ONE || state.gameMode == LudoGameMode.VS_COMPUTER) {
+                                state.selectedWagerAmount * 2
+                            } else {
+                                150
+                            }
+                            val isHindi = state.selectedLanguage == LudoLanguage.IN
+                            val prizeMessage = if (winnerPlayer?.type == PlayerType.HUMAN) {
+                                if (isHindi) {
+                                    "🎉 बधाई हो! आप $winBonus सिक्के जीते हैं! 🪙"
+                                } else {
+                                    "🎉 Congratulations! You won $winBonus Coins! 🪙"
+                                }
+                            } else {
+                                if (isHindi) {
+                                    "बेहतर भाग्य अगली बार! ${winnerPlayer?.name} जीत गया।"
+                                } else {
+                                    "Better luck next time! ${winnerPlayer?.name} won."
+                                }
+                            }
+
+                            Surface(
+                                color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFFFFD700)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = prizeMessage,
+                                    textAlign = TextAlign.Center,
+                                    color = Color(0xFFFFD700),
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.padding(14.dp)
+                                )
+                            }
+
+                            // Added beautiful coin balance display so user's coins are visible immediately after winning
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MonetizationOn,
+                                    contentDescription = "Coins",
+                                    tint = Color(0xFFFFD700),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isHindi) "आपके कुल सिक्के: ${state.coins} 🪙" else "Your Total Coins: ${state.coins} 🪙",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                            }
 
                             Text(
                                 text = "Ludo match successfully completed. What would you like to do next?",
@@ -599,6 +790,7 @@ fun LudoBoard(
                             AdType.GUARANTEED_SIX -> LudoTranslations.getTranslation("ad_guaranteed_six", state.selectedLanguage)
                             AdType.EXTEND_TIME -> LudoTranslations.getTranslation("ad_extend_time", state.selectedLanguage)
                             AdType.GAME_FINISH -> LudoTranslations.getTranslation("ad_game_finish", state.selectedLanguage)
+                            AdType.GAME_START -> LudoTranslations.getTranslation("ad_game_start", state.selectedLanguage)
                             AdType.RESET -> LudoTranslations.getTranslation("ad_reset", state.selectedLanguage)
                             else -> LudoTranslations.getTranslation("ad_watching", state.selectedLanguage)
                         },
@@ -1184,6 +1376,7 @@ fun PlayerCornerCard(
                                         shape = RoundedCornerShape(8.dp)
                                     )
                                     .clickable(enabled = canRoll) {
+                                        LudoAudioEngine.playDiceRoll()
                                         viewModel.rollDice()
                                     },
                                 contentAlignment = Alignment.Center
@@ -1249,6 +1442,7 @@ fun PlayerCornerCard(
                                         shape = RoundedCornerShape(8.dp)
                                     )
                                     .clickable(enabled = canRoll) {
+                                        LudoAudioEngine.playDiceRoll()
                                         viewModel.rollDice()
                                     },
                                 contentAlignment = Alignment.Center

@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.BuildConfig
 import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -65,7 +66,11 @@ fun BannerAd(modifier: Modifier = Modifier) {
                 factory = { context ->
                     AdView(context).apply {
                         setAdSize(AdSize.BANNER)
-                        adUnitId = "ca-app-pub-6221583924605189/7574074542" // User's real AdMob ID
+                        adUnitId = if (BuildConfig.DEBUG) {
+                            "ca-app-pub-3940256099942544/6300978111" // Official Google AdMob Test Banner ID
+                        } else {
+                            "ca-app-pub-6221583924605189/7574074542" // User's real AdMob ID
+                        }
                         adListener = object : AdListener() {
                             override fun onAdLoaded() {
                                 Log.d("AdMob", "Banner ad loaded successfully.")

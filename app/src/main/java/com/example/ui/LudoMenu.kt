@@ -3,6 +3,8 @@ package com.example.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -47,6 +49,26 @@ fun LudoMenu(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val infiniteTransition = rememberInfiniteTransition(label = "redeem_pulse")
+    val redeemScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "redeem_scale"
+    )
+    val claimScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "claim_scale"
+    )
 
     var showRulesDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -247,8 +269,11 @@ fun LudoMenu(
                         Brush.horizontalGradient(listOf(Color(0xFF334155), Color(0xFF334155)))
                     }
                     
+                    val finalClaimScale = if (uiState.isDailyRewardAvailable) claimScale else 1f
+                    
                     Box(
                         modifier = Modifier
+                            .scale(finalClaimScale)
                             .clip(RoundedCornerShape(6.dp))
                             .background(dailyBtnBg)
                             .clickable(enabled = uiState.isDailyRewardAvailable) {
@@ -270,11 +295,21 @@ fun LudoMenu(
                     }
 
                     // Watch Ad Button (Mini)
+                    val now = System.currentTimeMillis()
+                    val isVideoCooldownActive = uiState.videoCooldownEndTime > 0L && now < uiState.videoCooldownEndTime
+                    val videoBtnBg = if (isVideoCooldownActive) {
+                        Brush.horizontalGradient(listOf(Color(0xFF334155), Color(0xFF334155)))
+                    } else {
+                        Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8)))
+                    }
+                    val finalRedeemScale = if (isVideoCooldownActive) 1f else redeemScale
+                    
                     Box(
                         modifier = Modifier
+                            .scale(finalRedeemScale)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8))))
-                            .clickable {
+                            .background(videoBtnBg)
+                            .clickable(enabled = !isVideoCooldownActive) {
                                 viewModel.triggerAd(AdType.WATCH_AD)
                             }
                             .padding(horizontal = 8.dp, vertical = 5.dp),
@@ -284,18 +319,31 @@ fun LudoMenu(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Text(
-                                text = "+500 🪙",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
+                            if (isVideoCooldownActive) {
+                                val cooldownSecs = ((uiState.videoCooldownEndTime - now) / 1000).toInt().coerceAtLeast(0)
+                                val mins = cooldownSecs / 60
+                                val secs = cooldownSecs % 60
+                                val videoTimeText = String.format("%02d:%02d", mins, secs)
+                                Text(
+                                    text = "⏳ $videoTimeText",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = "+500 🪙 (${uiState.videoUseCount}/2)",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
                     }
 
@@ -1173,8 +1221,8 @@ fun LudoMenu(
                             }
                         }
 
-                        // Section 3: Wager Selector (Only for 1v1 mode!)
-                        if (uiState.gameMode == LudoGameMode.ONE_VS_ONE) {
+                        // Section 3: Wager Selector (For 1v1 and Computer modes!)
+                        if (uiState.gameMode == LudoGameMode.ONE_VS_ONE || uiState.gameMode == LudoGameMode.VS_COMPUTER) {
                             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0x1AFFFFFF)))
                             Text(
                                 text = "🪙 COIN ENTRY FEE / WAGER",
@@ -1505,6 +1553,7 @@ fun LudoMenu(
                                 AdType.GUARANTEED_SIX -> LudoTranslations.getTranslation("ad_guaranteed_six", uiState.selectedLanguage)
                                 AdType.EXTEND_TIME -> LudoTranslations.getTranslation("ad_extend_time", uiState.selectedLanguage)
                                 AdType.GAME_FINISH -> LudoTranslations.getTranslation("ad_game_finish", uiState.selectedLanguage)
+                                AdType.GAME_START -> LudoTranslations.getTranslation("ad_game_start", uiState.selectedLanguage)
                                 AdType.RESET -> LudoTranslations.getTranslation("ad_reset", uiState.selectedLanguage)
                                 AdType.WATCH_AD -> LudoTranslations.getTranslation("ad_watch_ad", uiState.selectedLanguage)
                                 else -> LudoTranslations.getTranslation("ad_watching", uiState.selectedLanguage)
