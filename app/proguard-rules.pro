@@ -5,9 +5,21 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Keep Ludo models, Gemini network models, and ViewModel intact so they don't get obfuscated
--keep class com.example.model.** { *; }
--keep class com.example.audio.** { *; }
+# Keep Ludo models, UI, audio, and viewmodels intact
+-keep class com.example.** { *; }
+-keepclassmembers class com.example.** { *; }
+
+# Keep Google Mobile Ads SDK classes
+-keep class com.google.android.gms.ads.** { *; }
+-dontwarn com.google.android.gms.ads.**
+
+# OkHttp, Retrofit & Moshi rules to prevent R8 missing class errors
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+-dontwarn retrofit2.**
+-dontwarn com.squareup.moshi.**
 
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
