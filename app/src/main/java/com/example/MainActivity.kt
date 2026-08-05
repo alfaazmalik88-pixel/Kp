@@ -6,12 +6,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.example.model.AdType
 import com.example.model.GamePhase
@@ -19,6 +29,7 @@ import com.example.model.LudoViewModel
 import com.example.audio.LudoAudioEngine
 import com.example.ui.LudoBoard
 import com.example.ui.LudoMenu
+import com.example.ui.isInternetAvailable
 import com.example.ui.theme.MyApplicationTheme
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
@@ -29,8 +40,105 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
+@Composable
+fun InternetStatusGate(content: @Composable () -> Unit) {
+  val context = LocalContext.current
+  var isConnected by remember { mutableStateOf(isInternetAvailable(context)) }
+
+  LaunchedEffect(Unit) {
+    while (true) {
+      isConnected = isInternetAvailable(context)
+      delay(1500)
+    }
+  }
+
+  Box(modifier = Modifier.fillMaxSize()) {
+    content()
+
+    if (!isConnected) {
+      Box(
+        modifier = Modifier
+          .fillMaxSize()
+          .background(Color.Black.copy(alpha = 0.94f)),
+        contentAlignment = Alignment.Center
+      ) {
+        Card(
+          modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .padding(16.dp),
+          shape = RoundedCornerShape(24.dp),
+          colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1B4B)),
+          border = BorderStroke(2.dp, Color(0xFFEF4444))
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Box(
+              modifier = Modifier
+                .size(72.dp)
+                .background(Color(0xFFEF4444).copy(alpha = 0.2f), CircleShape),
+              contentAlignment = Alignment.Center
+            ) {
+              Text("📡", fontSize = 38.sp)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+              text = "⚠️ इंटरनेट कनेक्शन बंद है! (No Internet)",
+              style = TextStyle(
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                textAlign = TextAlign.Center
+              )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+              text = "Ludo Prime खेलने के लिए इंटरनेट ऑन होना अनिवार्य है। कृपया अपना Mobile Data या Wi-Fi कनेक्शन चालू करें।",
+              style = TextStyle(
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+                lineHeight = 20.sp
+              )
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+              onClick = {
+                isConnected = isInternetAvailable(context)
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF10B981)
+              ),
+              shape = RoundedCornerShape(12.dp),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = "रीफ्रेश करें (REFRESH) 🔄",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(vertical = 4.dp)
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 class MainActivity : ComponentActivity() {
   private val viewModel: LudoViewModel by viewModels()
@@ -120,20 +228,22 @@ class MainActivity : ComponentActivity() {
       MyApplicationTheme {
         val state by viewModel.uiState.collectAsState()
 
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-          when (state.gamePhase) {
-            GamePhase.MODE_SELECT, GamePhase.SETUP -> {
-              LudoMenu(
-                viewModel = viewModel,
-                modifier = Modifier.padding(innerPadding)
-              )
-            }
-            GamePhase.PLAYING, GamePhase.FINISHED -> {
-              LudoBoard(
-                viewModel = viewModel,
-                onBack = { viewModel.triggerAd(AdType.GAME_FINISH) },
-                modifier = Modifier.padding(innerPadding)
-              )
+        InternetStatusGate {
+          Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            when (state.gamePhase) {
+              GamePhase.MODE_SELECT, GamePhase.SETUP -> {
+                LudoMenu(
+                  viewModel = viewModel,
+                  modifier = Modifier.padding(innerPadding)
+                )
+              }
+              GamePhase.PLAYING, GamePhase.FINISHED -> {
+                LudoBoard(
+                  viewModel = viewModel,
+                  onBack = { viewModel.triggerAd(AdType.GAME_FINISH) },
+                  modifier = Modifier.padding(innerPadding)
+                )
+              }
             }
           }
         }

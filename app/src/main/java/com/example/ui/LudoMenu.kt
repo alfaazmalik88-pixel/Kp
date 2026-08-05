@@ -39,6 +39,7 @@ import com.example.model.LudoTokenStyle
 import com.example.model.LudoDiceStyle
 import com.example.model.LudoGameMode
 import com.example.model.LudoViewModel
+import com.example.model.LudoState
 import com.example.model.PlayerType
 import com.example.model.AdType
 
@@ -119,11 +120,9 @@ fun LudoMenu(
                             .size(40.dp)
                             .background(Color(0x22FFFFFF), CircleShape)
                     ) {
-                        Icon(
-                            imageVector = if (uiState.isSoundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                            contentDescription = "Toggle Sound",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                        Text(
+                            text = if (uiState.isSoundEnabled) "🔊" else "🔇",
+                            fontSize = 18.sp
                         )
                     }
 
@@ -134,7 +133,7 @@ fun LudoMenu(
                             .background(Color(0x22FFFFFF), CircleShape)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Language,
+                            imageVector = Icons.Default.List,
                             contentDescription = "Select Language",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
@@ -154,7 +153,7 @@ fun LudoMenu(
                             .background(Color(0x22FFFFFF), CircleShape)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.HelpOutline,
+                            imageVector = Icons.Default.Info,
                             contentDescription = "Rules & Guide",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
@@ -310,7 +309,7 @@ fun LudoMenu(
                             .clip(RoundedCornerShape(6.dp))
                             .background(videoBtnBg)
                             .clickable(enabled = !isVideoCooldownActive) {
-                                viewModel.triggerAd(AdType.WATCH_AD)
+                                viewModel.triggerAd(AdType.WATCH_AD, isInternetAvailable(context))
                             }
                             .padding(horizontal = 8.dp, vertical = 5.dp),
                         contentAlignment = Alignment.Center
@@ -573,141 +572,67 @@ fun LudoMenu(
                                     .weight(1f, fill = false)
                                     .verticalScroll(rememberScrollState()),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                when (activeShopTab) {
-                                    0 -> {
-                                        // Tab 0: Themes (8 items)
-                                        LudoTheme.values().forEach { theme ->
-                                            val isUnlocked = uiState.unlockedThemes.contains(theme)
-                                            val isSelected = uiState.selectedTheme == theme
-                                            val cost = viewModel.getThemeCost(theme)
+                            ) {                                 when (activeShopTab) {
+                                     0 -> {
+                                         // Tab 0: Themes grouped into Cultural and Classic Collections
+                                         val culturalThemes = listOf(LudoTheme.GULF, LudoTheme.INDONESIA, LudoTheme.TURKEY, LudoTheme.ISLAMIC)
+                                         val classicThemes = LudoTheme.values().filter { it !in listOf(LudoTheme.GULF, LudoTheme.INDONESIA, LudoTheme.TURKEY, LudoTheme.ISLAMIC) }
 
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .border(
-                                                        width = if (isSelected) 1.5.dp else 0.5.dp,
-                                                        color = if (isSelected) Color(0xFFFFD700) else Color.White.copy(alpha = 0.1f),
-                                                        shape = RoundedCornerShape(12.dp)
-                                                    ),
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = if (isSelected) Color(0xFF1E293B) else Color(0xFF0F172A)
-                                                ),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(10.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    // Left info
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Row(
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                        ) {
-                                                            val emoji = when (theme) {
-                                                                LudoTheme.CLASSIC -> "🪵"
-                                                                LudoTheme.COSMIC -> "🌌"
-                                                                LudoTheme.ROYAL -> "👑"
-                                                                LudoTheme.FOREST -> "🌲"
-                                                                LudoTheme.CANDY -> "🍬"
-                                                                LudoTheme.OCEAN -> "🌊"
-                                                                LudoTheme.CYBERPUNK -> "⚡"
-                                                                LudoTheme.EGYPT -> "🏺"
-                                                            }
-                                                            Text(emoji, fontSize = 16.sp)
-                                                            Text(
-                                                                text = theme.displayName,
-                                                                color = Color.White,
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 13.sp
-                                                            )
-                                                        }
-                                                        Spacer(modifier = Modifier.height(2.dp))
-                                                        Text(
-                                                            text = "Token: ${theme.pawnName}",
-                                                            color = Color.White.copy(alpha = 0.6f),
-                                                            fontSize = 10.sp
-                                                        )
-                                                        Text(
-                                                            text = "Dice: ${theme.diceName}",
-                                                            color = Color.White.copy(alpha = 0.6f),
-                                                            fontSize = 10.sp
-                                                        )
-                                                    }
+                                         // Category 1: Cultural Collection
+                                         Row(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(top = 4.dp, bottom = 4.dp),
+                                             verticalAlignment = Alignment.CenterVertically,
+                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                         ) {
+                                             Text("🏛️", fontSize = 14.sp)
+                                             Text(
+                                                 text = "Cultural Collection",
+                                                 fontWeight = FontWeight.ExtraBold,
+                                                 color = Color(0xFFFBBF24), // Vibrant Amber
+                                                 fontSize = 12.sp
+                                             )
+                                         }
 
-                                                    // Right button / status
-                                                    if (isUnlocked) {
-                                                        if (isSelected) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .clip(RoundedCornerShape(6.dp))
-                                                                    .background(Color(0x2210B981))
-                                                                    .border(1.dp, Color(0xFF10B981), RoundedCornerShape(6.dp))
-                                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                                            ) {
-                                                                Text(
-                                                                    text = "Active ✓",
-                                                                    color = Color(0xFF10B981),
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    fontSize = 11.sp
-                                                                )
-                                                            }
-                                                        } else {
-                                                            Button(
-                                                                onClick = { 
-                                                                    viewModel.selectTheme(theme)
-                                                                    shopError = null
-                                                                },
-                                                                colors = ButtonDefaults.buttonColors(
-                                                                    containerColor = Color(0xFF3B82F6)
-                                                                ),
-                                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                                modifier = Modifier.height(28.dp),
-                                                                shape = RoundedCornerShape(6.dp)
-                                                            ) {
-                                                                Text(
-                                                                    text = LudoTranslations.getTranslation("use_btn", uiState.selectedLanguage),
-                                                                    color = Color.White,
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    fontSize = 11.sp
-                                                                )
-                                                            }
-                                                        }
-                                                    } else {
-                                                        Button(
-                                                            onClick = {
-                                                                if (uiState.coins >= cost) {
-                                                                    viewModel.unlockTheme(theme)
-                                                                    shopError = null
-                                                                } else {
-                                                                    shopError = "Not enough coins! Watch sponsor ads to earn more."
-                                                                }
-                                                            },
-                                                            colors = ButtonDefaults.buttonColors(
-                                                                containerColor = Color(0xFFF59E0B)
-                                                            ),
-                                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                                            modifier = Modifier.height(28.dp),
-                                                            shape = RoundedCornerShape(6.dp)
-                                                        ) {
-                                                            Text(
-                                                                text = "${cost} 🪙",
-                                                                color = Color.White,
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 11.sp
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    1 -> {
-                                        // Tab 1: Token Styles (6 items)
+                                         culturalThemes.forEach { theme ->
+                                             ThemeShopItem(
+                                                 theme = theme,
+                                                 uiState = uiState,
+                                                 viewModel = viewModel,
+                                                 onError = { shopError = it }
+                                             )
+                                         }
+
+                                         Spacer(modifier = Modifier.height(14.dp))
+
+                                         // Category 2: Classic Collection
+                                         Row(
+                                             modifier = Modifier
+                                                 .fillMaxWidth()
+                                                 .padding(top = 4.dp, bottom = 4.dp),
+                                             verticalAlignment = Alignment.CenterVertically,
+                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                         ) {
+                                             Text("🎮", fontSize = 14.sp)
+                                             Text(
+                                                 text = "Classic Collection",
+                                                 fontWeight = FontWeight.ExtraBold,
+                                                 color = Color(0xFF60A5FA), // Soft Blue
+                                                 fontSize = 12.sp
+                                             )
+                                         }
+
+                                         classicThemes.forEach { theme ->
+                                             ThemeShopItem(
+                                                 theme = theme,
+                                                 uiState = uiState,
+                                                 viewModel = viewModel,
+                                                 onError = { shopError = it }
+                                             )
+                                         }
+                                     }
+                                     1 -> {
                                         LudoTokenStyle.values().forEach { tokenStyle ->
                                             val isUnlocked = uiState.unlockedTokenStyles.contains(tokenStyle)
                                             val isSelected = uiState.selectedTokenStyle == tokenStyle
@@ -809,7 +734,7 @@ fun LudoMenu(
                                                             shape = RoundedCornerShape(6.dp)
                                                         ) {
                                                             Text(
-                                                                text = "${cost} 🪙",
+                                                                text = if (cost == 0) "FREE" else "${cost} 🪙",
                                                                 color = Color.White,
                                                                 fontWeight = FontWeight.Bold,
                                                                 fontSize = 11.sp
@@ -923,7 +848,7 @@ fun LudoMenu(
                                                             shape = RoundedCornerShape(6.dp)
                                                         ) {
                                                             Text(
-                                                                text = "${cost} 🪙",
+                                                                text = if (cost == 0) "FREE" else "${cost} 🪙",
                                                                 color = Color.White,
                                                                 fontWeight = FontWeight.Bold,
                                                                 fontSize = 11.sp
@@ -1089,18 +1014,20 @@ fun LudoMenu(
                         GameModeCard(
                             title = LudoTranslations.getTranslation("classic_title", uiState.selectedLanguage),
                             subtitle = LudoTranslations.getTranslation("classic_desc", uiState.selectedLanguage),
-                            icon = Icons.Default.Casino,
+                            icon = Icons.Default.PlayArrow,
                             gradientColors = listOf(Color(0xFF10B981), Color(0xFF059669)), // Emerald Green
                             testTag = "mode_classic",
                             onClick = { viewModel.selectGameMode(LudoGameMode.CLASSIC) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            animationDelay = 0,
+                            enableAnimation = false
                         )
 
                         // 2. 1v1 Game
                         GameModeCard(
                             title = LudoTranslations.getTranslation("one_vs_one_title", uiState.selectedLanguage),
                             subtitle = LudoTranslations.getTranslation("one_vs_one_desc", uiState.selectedLanguage),
-                            icon = Icons.Default.Bolt,
+                            icon = Icons.Default.Star,
                             gradientColors = listOf(Color(0xFFD946EF), Color(0xFF8B5CF6)), // Purple/Magenta
                             testTag = "mode_1v1",
                             onClick = {
@@ -1110,7 +1037,9 @@ fun LudoMenu(
                                     showNoInternetDialog = true
                                 }
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            animationDelay = 300,
+                            enableAnimation = true
                         )
                     }
 
@@ -1122,26 +1051,32 @@ fun LudoMenu(
                         GameModeCard(
                             title = LudoTranslations.getTranslation("computer_title", uiState.selectedLanguage),
                             subtitle = LudoTranslations.getTranslation("computer_desc", uiState.selectedLanguage),
-                            icon = Icons.Default.Android,
+                            icon = Icons.Default.Person,
                             gradientColors = listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8)), // Ocean Blue
                             testTag = "mode_computer",
                             onClick = {
                                 viewModel.selectGameMode(LudoGameMode.VS_COMPUTER)
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            animationDelay = 600,
+                            enableAnimation = false
                         )
 
                         // 4. Team Up
                         GameModeCard(
                             title = LudoTranslations.getTranslation("team_up_title", uiState.selectedLanguage),
                             subtitle = LudoTranslations.getTranslation("team_up_desc", uiState.selectedLanguage),
-                            icon = Icons.Default.Groups,
+                            icon = Icons.Default.Person,
                             gradientColors = listOf(Color(0xFFF59E0B), Color(0xFFD97706)), // Orange/Gold
                             testTag = "mode_team_up",
                             onClick = { viewModel.selectGameMode(LudoGameMode.TEAM_UP) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            animationDelay = 900,
+                            enableAnimation = false
                         )
                     }
+
+
                 }
             } else if (uiState.gamePhase == GamePhase.SETUP) {
                 val selectedCount by viewModel.selectedPlayerCount.collectAsState()
@@ -1367,7 +1302,7 @@ fun LudoMenu(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Help, contentDescription = "Rules", tint = Color(0xFFFBC02D))
+                        Icon(Icons.Default.Info, contentDescription = "Rules", tint = Color(0xFFFBC02D))
                         Text(LudoTranslations.getTranslation("rules_title", uiState.selectedLanguage), fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 },
@@ -1403,7 +1338,7 @@ fun LudoMenu(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Language, contentDescription = "Language", tint = Color(0xFFFBC02D))
+                        Icon(Icons.Default.List, contentDescription = "Language", tint = Color(0xFFFBC02D))
                         Text(LudoTranslations.getTranslation("choose_language", uiState.selectedLanguage), fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 },
@@ -1452,7 +1387,7 @@ fun LudoMenu(
                                 }
                                 if (uiState.selectedLanguage == lang) {
                                     Icon(
-                                        imageVector = Icons.Default.CheckCircle,
+                                        imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
                                         tint = Color(0xFF4CAF50)
                                     )
@@ -1486,7 +1421,7 @@ fun LudoMenu(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.WifiOff, contentDescription = "Offline", tint = Color(0xFFEF4444))
+                        Icon(Icons.Default.Warning, contentDescription = "Offline", tint = Color(0xFFEF4444))
                         Text(
                             text = LudoTranslations.getTranslation("internet_required_title", uiState.selectedLanguage),
                             fontWeight = FontWeight.Bold,
@@ -1578,8 +1513,20 @@ fun LudoMenu(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { viewModel.dismissAd() }) {
-                        Text("Skip Ad", color = Color.White.copy(alpha = 0.6f))
+                    val isCompleted = uiState.adSecondsLeft == 0
+                    val btnText = if (isCompleted) {
+                        LudoTranslations.getTranslationWithFallback("claim_reward", uiState.selectedLanguage)
+                    } else {
+                        LudoTranslations.getTranslationWithFallback("skip_ad", uiState.selectedLanguage)
+                    }
+                    Button(
+                        onClick = { viewModel.dismissAd() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isCompleted) Color(0xFF10B981) else Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(text = btnText, fontWeight = FontWeight.Bold)
                     }
                 },
                 containerColor = Color(0xFF1E1B4B),
@@ -1598,14 +1545,74 @@ fun GameModeCard(
     gradientColors: List<Color>,
     testTag: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animationDelay: Int = 0,
+    enableAnimation: Boolean = true
 ) {
-    Card(
-        modifier = modifier
+    val infiniteTransition = rememberInfiniteTransition(label = "mode_float_pulse")
+    
+    // Very gentle and subtle floating movement (-2.dp to 2.dp)
+    val floatAnim by infiniteTransition.animateFloat(
+        initialValue = -2f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2400, delayMillis = animationDelay, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+
+    // Extremely subtle scaling pulse (0.985 to 1.015)
+    val scaleAnim by infiniteTransition.animateFloat(
+        initialValue = 0.985f,
+        targetValue = 1.015f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2000, delayMillis = animationDelay, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    // Subtle breathing border glow alpha
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1800, delayMillis = animationDelay, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "border_alpha"
+    )
+
+    val cardModifier = if (enableAnimation) {
+        modifier
+            .height(100.dp)
+            .scale(scaleAnim)
+            .offset(y = floatAnim.dp)
+            .shadow(8.dp, RoundedCornerShape(16.dp))
+            .border(
+                width = 1.5.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        gradientColors.first().copy(alpha = borderAlpha),
+                        Color.White.copy(alpha = borderAlpha * 0.4f),
+                        gradientColors.last().copy(alpha = borderAlpha)
+                    )
+                ),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .testTag(testTag)
+    } else {
+        modifier
             .height(100.dp)
             .shadow(8.dp, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .testTag(testTag),
+            .testTag(testTag)
+    }
+
+    Card(
+        modifier = cardModifier,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -1777,8 +1784,12 @@ fun CompactThemeOption(
         LudoTheme.OCEAN -> Color(0xFF06B6D4)
         LudoTheme.CYBERPUNK -> Color(0xFF6366F1)
         LudoTheme.EGYPT -> Color(0xFFD97706)
+        LudoTheme.GULF -> Color(0xFFD4AF37)
+        LudoTheme.INDONESIA -> Color(0xFF8B5A2B)
+        LudoTheme.TURKEY -> Color(0xFF1D4ED8)
+        LudoTheme.ISLAMIC -> Color(0xFF0D9488)
     }
-    val themeTextColor = if (theme == LudoTheme.ROYAL) Color.Black else Color.White
+    val themeTextColor = if (theme == LudoTheme.ROYAL || theme == LudoTheme.GULF) Color.Black else Color.White
     val emoji = when (theme) {
         LudoTheme.CLASSIC -> "🪵"
         LudoTheme.COSMIC -> "🌌"
@@ -1788,6 +1799,10 @@ fun CompactThemeOption(
         LudoTheme.OCEAN -> "🌊"
         LudoTheme.CYBERPUNK -> "⚡"
         LudoTheme.EGYPT -> "🏺"
+        LudoTheme.GULF -> "🕌"
+        LudoTheme.INDONESIA -> "🎨"
+        LudoTheme.TURKEY -> "🧿"
+        LudoTheme.ISLAMIC -> "🌙"
     }
 
     Box(
@@ -1873,6 +1888,145 @@ fun isInternetAvailable(context: android.content.Context): Boolean {
         capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     } catch (e: Exception) {
         true
+    }
+}
+
+@Composable
+fun ThemeShopItem(
+    theme: LudoTheme,
+    uiState: LudoState,
+    viewModel: LudoViewModel,
+    onError: (String?) -> Unit
+) {
+    val isUnlocked = uiState.unlockedThemes.contains(theme)
+    val isSelected = uiState.selectedTheme == theme
+    val cost = viewModel.getThemeCost(theme)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = if (isSelected) 1.5.dp else 0.5.dp,
+                color = if (isSelected) Color(0xFFFFD700) else Color.White.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(12.dp)
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFF1E293B) else Color(0xFF0F172A)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left info
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val emoji = when (theme) {
+                        LudoTheme.CLASSIC -> "🪵"
+                        LudoTheme.COSMIC -> "🌌"
+                        LudoTheme.ROYAL -> "👑"
+                        LudoTheme.FOREST -> "🌲"
+                        LudoTheme.CANDY -> "🍬"
+                        LudoTheme.OCEAN -> "🌊"
+                        LudoTheme.CYBERPUNK -> "⚡"
+                        LudoTheme.EGYPT -> "🏺"
+                        LudoTheme.GULF -> "🕌"
+                        LudoTheme.INDONESIA -> "🎨"
+                        LudoTheme.TURKEY -> "🧿"
+                        LudoTheme.ISLAMIC -> "🌙"
+                    }
+                    Text(emoji, fontSize = 16.sp)
+                    Text(
+                        text = theme.displayName,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Token: ${theme.pawnName}",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 10.sp
+                )
+                Text(
+                    text = "Dice: ${theme.diceName}",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 10.sp
+                )
+            }
+
+            // Right button / status
+            if (isUnlocked) {
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0x2210B981))
+                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "Active ✓",
+                            color = Color(0xFF10B981),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                } else {
+                    Button(
+                        onClick = { 
+                            viewModel.selectTheme(theme)
+                            onError(null)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3B82F6)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(28.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = LudoTranslations.getTranslation("use_btn", uiState.selectedLanguage),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = {
+                        if (uiState.coins >= cost) {
+                            viewModel.unlockTheme(theme)
+                            onError(null)
+                        } else {
+                            onError("Not enough coins! Watch sponsor ads to earn more.")
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF59E0B)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(28.dp),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = if (cost == 0) "FREE" else "${cost} 🪙",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
     }
 }
 

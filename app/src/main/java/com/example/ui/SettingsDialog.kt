@@ -65,7 +65,7 @@ fun SettingsDialog(
                 // Privacy Policy Card
                 SettingsSectionCard(
                     title = LudoTranslations.getTranslation("privacy_policy", selectedLanguage),
-                    icon = Icons.Default.Security,
+                    icon = Icons.Default.Lock,
                     iconTint = Color(0xFF4CAF50)
                 ) {
                     Text(

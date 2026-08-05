@@ -14,7 +14,7 @@ enum class WaveType {
 
 object LudoAudioEngine {
     private const val TAG = "LudoAudioEngine"
-    private const val SAMPLE_RATE = 22050
+    private const val SAMPLE_RATE = 44100
 
     // Shared Coroutine Scope for BGM and SFX
     private val audioScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -111,6 +111,14 @@ object LudoAudioEngine {
         audioScope.launch(sfxDispatcher) {
             try {
                 getSfxTrack()
+                // Pre-generate and cache all game sound samples so they are ready instantly
+                sfxCache["token_move"] = generateSequenceSamples(listOf(523.25, 783.99, 659.25), listOf(35, 35, 50), 0.10f, WaveType.SINE, 0)
+                sfxCache["token_hop"] = generateSequenceSamples(listOf(659.25, 880.00), listOf(20, 25), 0.08f, WaveType.SINE, 0)
+                sfxCache["turn_pass"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(30, 40), 0.05f, WaveType.SINE, 0)
+                sfxCache["alert"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(80, 100), 0.10f, WaveType.SINE, 30)
+                sfxCache["dice_roll"] = generateSequenceSamples(listOf(120.0, 200.0, 160.0, 240.0, 180.0, 280.0), listOf(18, 18, 18, 18, 18, 22), 0.09f, WaveType.TRIANGLE, 0)
+                sfxCache["token_captured"] = generateSequenceSamples(listOf(587.33, 493.88, 392.00, 440.00, 587.33), listOf(45, 45, 45, 45, 120), 0.12f, WaveType.SINE, 0)
+                sfxCache["token_reached_home"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 1318.51), listOf(50, 50, 50, 50, 250), 0.13f, WaveType.SINE, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Prewarm failed", e)
             }
@@ -264,8 +272,8 @@ object LudoAudioEngine {
             val dur = durationsMs[i]
             val numSamples = (SAMPLE_RATE * (dur / 1000.0)).toInt()
 
-            val attackSamples = (numSamples * 0.15).toInt()
-            val decaySamples = (numSamples * 0.85).toInt()
+            val attackSamples = (numSamples * 0.10).toInt().coerceAtLeast(1)
+            val decaySamples = (numSamples - attackSamples).coerceAtLeast(1)
 
             for (j in 0 until numSamples) {
                 if (currentIndex >= totalSamples) break
@@ -273,17 +281,17 @@ object LudoAudioEngine {
                 val angle = 2.0 * Math.PI * freq * t
                 val waveVal = when (type) {
                     WaveType.SINE -> Math.sin(angle)
-                    WaveType.SQUARE -> if (Math.sin(angle) >= 0) 1.0 else -1.0
+                    WaveType.SQUARE -> if (Math.sin(angle) >= 0) 0.8 else -0.8
                     WaveType.TRIANGLE -> {
                         val x = angle / (2.0 * Math.PI)
                         2.0 * Math.abs(2.0 * (x - Math.floor(x + 0.5))) - 1.0
                     }
                 }
 
-                // Envelope
+                // Raised cosine envelope for smooth click-free audio start and end
                 val env = when {
-                    j < attackSamples -> (j.toFloat() / attackSamples)
-                    else -> (1.0f - (j - attackSamples).toFloat() / decaySamples).coerceIn(0f, 1f)
+                    j < attackSamples -> 0.5f * (1.0f - Math.cos(Math.PI * j / attackSamples).toFloat())
+                    else -> 0.5f * (1.0f + Math.cos(Math.PI * (j - attackSamples) / decaySamples).toFloat())
                 }
 
                 samples[currentIndex] = (waveVal * Short.MAX_VALUE * volume * env).toInt()
@@ -306,6 +314,46 @@ object LudoAudioEngine {
 
     private val sfxCache = java.util.concurrent.ConcurrentHashMap<String, ShortArray>()
 
+    private fun playStaticPcm(samples: ShortArray) {
+        if (!isSoundEnabled || samples.isEmpty()) return
+        audioScope.launch(sfxDispatcher) {
+            try {
+                val track = AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(SAMPLE_RATE)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build()
+                    )
+                    .setBufferSizeInBytes(samples.size * 2)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+
+                val written = track.write(samples, 0, samples.size)
+                if (written > 0) {
+                    track.play()
+                    val durationMs = (samples.size.toDouble() / SAMPLE_RATE * 1000).toLong()
+                    delay(durationMs + 150)
+                    try {
+                        track.stop()
+                        track.release()
+                    } catch (e: Exception) { /* ignore */ }
+                } else {
+                    track.release()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Static SFX error", e)
+            }
+        }
+    }
+
     private fun playSequenceCached(
         key: String,
         frequencies: List<Double>,
@@ -315,32 +363,20 @@ object LudoAudioEngine {
         gapMs: Long = 0
     ) {
         if (!isSoundEnabled) return
-        audioScope.launch(sfxDispatcher) {
-            val samples = sfxCache.getOrPut(key) {
-                generateSequenceSamples(frequencies, durationsMs, volume, type, gapMs)
-            }
-            if (samples.isEmpty()) return@launch
-
-            sfxMutex.withLock {
-                val track = getSfxTrack() ?: return@withLock
-                try {
-                    track.flush()
-                    track.write(samples, 0, samples.size)
-                } catch (e: Exception) {
-                    Log.e(TAG, "SFX Error playing sequence: $key", e)
-                }
-            }
+        val samples = sfxCache.getOrPut(key) {
+            generateSequenceSamples(frequencies, durationsMs, volume, type, gapMs)
         }
+        playStaticPcm(samples)
     }
 
     fun playTokenMove() {
-        // High, cozy, soft bubble-pop sound on a pure sine wave (sounds like a high-end physical hop)
-        playSequenceCached("token_move", listOf(523.25, 783.99, 659.25), listOf(35, 35, 50), volume = 0.10f, type = WaveType.SINE)
+        // High, cozy, crisp token move sound (pure sine wave, clear resonant chime)
+        playSequenceCached("token_move", listOf(783.99, 1046.50, 880.00), listOf(25, 25, 35), volume = 0.14f, type = WaveType.SINE)
     }
 
     fun playTokenHop() {
-        // Very short, crisp single hop sound (pure sine wave, 45ms)
-        playSequenceCached("token_hop", listOf(659.25, 880.00), listOf(20, 25), volume = 0.08f, type = WaveType.SINE)
+        // Very short, crisp single hop sound (pure sine wave, crystal wooden tap)
+        playSequenceCached("token_hop", listOf(880.00, 1174.66), listOf(20, 25), volume = 0.14f, type = WaveType.SINE)
     }
 
     fun playTurnPass() {

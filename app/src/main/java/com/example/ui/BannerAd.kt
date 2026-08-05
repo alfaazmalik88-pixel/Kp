@@ -108,12 +108,12 @@ fun BackupSimulatedBannerAd() {
                 targetUrl = "https://ai.studio/build"
             ),
             BannerAdData(
-                icon = "✨",
-                title = "Google AI Studio",
-                subtitle = "Build Kotlin apps in seconds using Gemini 3.5",
-                actionText = "TRY NOW",
-                themeColor = Color(0xFF3B82F6), // Blue
-                targetUrl = "https://ai.studio/build"
+                icon = "👑",
+                title = "Ludo Prime VIP Pass",
+                subtitle = "Get 50,000 extra coins & exclusive royal dice skins! 🌟",
+                actionText = "GET VIP",
+                themeColor = Color(0xFF8B5CF6), // Royal Purple
+                targetUrl = "https://play.google.com"
             ),
             BannerAdData(
                 icon = "🪙",

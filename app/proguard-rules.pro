@@ -5,6 +5,10 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+# Keep Ludo models, Gemini network models, and ViewModel intact so they don't get obfuscated
+-keep class com.example.model.** { *; }
+-keep class com.example.audio.** { *; }
+
 # If your project uses WebView with JS, uncomment the following
 # and specify the fully qualified class name to the JavaScript interface
 # class:

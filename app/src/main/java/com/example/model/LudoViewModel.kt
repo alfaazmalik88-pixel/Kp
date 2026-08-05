@@ -19,7 +19,11 @@ enum class LudoTheme(val displayName: String, val pawnName: String, val diceName
     CANDY("Candy Land", "Sweet Candy", "Jelly Dice"),
     OCEAN("Ocean Deep", "Ocean Starfish", "Coral Shell Dice"),
     CYBERPUNK("Cyber Neon", "Neon Circuit", "Synthwave Cube"),
-    EGYPT("Pharaoh Gold", "Mini Pyramid", "Hieroglyphic Stone")
+    EGYPT("Pharaoh Gold", "Mini Pyramid", "Hieroglyphic Stone"),
+    GULF("Royal Arabian", "Ruby Gem", "Gold Engraved Dice"),
+    INDONESIA("Batik Elegance", "Batik Goti", "Carved Wood Dice"),
+    TURKEY("Ottoman Splendor", "Iznik Token", "Turkish Mosaic Dice"),
+    ISLAMIC("Islamic Art", "Crescent Moon", "Turquoise Calligraphy Dice")
 }
 
 enum class LudoTokenStyle(val id: String, val displayName: String, val emoji: String, val cost: Int) {
@@ -63,6 +67,14 @@ enum class LudoLanguage(
 }
 
 object LudoTranslations {
+    fun getTranslationWithFallback(key: String, lang: LudoLanguage): String {
+        val trans = getTranslation(key, lang)
+        if (trans == key) {
+            return getTranslation(key, LudoLanguage.EN)
+        }
+        return trans
+    }
+
     fun getTranslation(key: String, lang: LudoLanguage): String {
         return when (lang) {
             LudoLanguage.SA, LudoLanguage.KW, LudoLanguage.QA, LudoLanguage.OM, LudoLanguage.BH -> {
@@ -278,6 +290,13 @@ object LudoTranslations {
                     "buy_btn" -> "%d 🪙 में खरीदें"
                     "use_btn" -> "थीम लागू करें"
                     "unlocked" -> "अनलॉक किया गया"
+                    "next_match" -> "फिर से खेलें / अगला मैच ➡️"
+                    "go_to_home" -> "मुख्य स्क्रीन / होम 🏠"
+                    "internet_required_for_reward" -> "⚠️ सिक्के/6 प्राप्त करने के लिए इंटरनेट ऑन होना आवश्यक है!"
+                    "ad_skipped_no_reward" -> "⚠️ विज्ञापन पूरा नहीं देखा! पुरस्कार नहीं मिला।"
+                    "watch_ad_reward" -> "मुफ़्त +500 सिक्के पाएं (विज्ञापन देखें) 📺🪙"
+                    "skip_ad" -> "विज्ञापन छोड़ें (Skip)"
+                    "claim_reward" -> "इनाम प्राप्त करें 🪙 (Claim)"
                     else -> key
                 }
             }
@@ -559,6 +578,13 @@ object LudoTranslations {
                     "buy_btn" -> "Buy for %d 🪙"
                     "use_btn" -> "Use Theme"
                     "unlocked" -> "Unlocked"
+                    "next_match" -> "PLAY AGAIN / NEXT MATCH ➡️"
+                    "go_to_home" -> "GO TO HOME 🏠"
+                    "internet_required_for_reward" -> "⚠️ Internet connection required to claim reward / get 6!"
+                    "ad_skipped_no_reward" -> "⚠️ Ad skipped! No reward granted."
+                    "watch_ad_reward" -> "Get Free +500 Coins (Watch Ad) 📺🪙"
+                    "skip_ad" -> "Skip Ad"
+                    "claim_reward" -> "Claim Reward 🪙"
                     else -> key
                 }
             }
@@ -613,7 +639,7 @@ data class LudoState(
     val coins: Int = 1000,
     val isDailyRewardAvailable: Boolean = false,
     val lastCheckInTime: Long = 0L,
-    val unlockedThemes: Set<LudoTheme> = setOf(LudoTheme.CLASSIC),
+    val unlockedThemes: Set<LudoTheme> = setOf(LudoTheme.CLASSIC, LudoTheme.FOREST),
     val selectedTokenStyle: LudoTokenStyle = LudoTokenStyle.CLASSIC_PIN,
     val selectedDiceStyle: LudoDiceStyle = LudoDiceStyle.CLASSIC_DOTS,
     val unlockedTokenStyles: Set<LudoTokenStyle> = setOf(LudoTokenStyle.CLASSIC_PIN),
@@ -683,8 +709,10 @@ class LudoViewModel : ViewModel() {
     private var timerJob: kotlinx.coroutines.Job? = null
 
     private var sharedPrefs: android.content.SharedPreferences? = null
+    private var appContext: android.content.Context? = null
 
     fun initPrefs(context: android.content.Context) {
+        appContext = context.applicationContext
         val prefs = context.getSharedPreferences("ludo_prefs", android.content.Context.MODE_PRIVATE)
         sharedPrefs = prefs
         
@@ -719,6 +747,9 @@ class LudoViewModel : ViewModel() {
         val currentDiceStr = prefs.getString("selected_dice_style", "CLASSIC_DOTS") ?: "CLASSIC_DOTS"
         val currentDice = try { LudoDiceStyle.valueOf(currentDiceStr) } catch(e: Exception) { LudoDiceStyle.CLASSIC_DOTS }
         
+        val currentLanguageStr = prefs.getString("selected_language", "EN") ?: "EN"
+        val currentLanguage = try { LudoLanguage.valueOf(currentLanguageStr) } catch(e: Exception) { LudoLanguage.EN }
+        
         val sixUseCount = prefs.getInt("six_use_count", 0)
         val sixCooldownEndTime = prefs.getLong("six_cooldown_end_time", 0L)
         val videoUseCount = prefs.getInt("video_use_count", 0)
@@ -737,11 +768,12 @@ class LudoViewModel : ViewModel() {
                 coins = coins,
                 isDailyRewardAvailable = isDailyAvailable,
                 lastCheckInTime = lastCheckInTime,
-                unlockedThemes = unlockedThemesSet.ifEmpty { setOf(LudoTheme.CLASSIC) },
+                unlockedThemes = (unlockedThemesSet + LudoTheme.CLASSIC + LudoTheme.FOREST),
                 selectedTheme = currentTheme,
-                unlockedTokenStyles = unlockedTokensSet.ifEmpty { setOf(LudoTokenStyle.CLASSIC_PIN) },
+                selectedLanguage = currentLanguage,
+                unlockedTokenStyles = (unlockedTokensSet + LudoTokenStyle.CLASSIC_PIN),
                 selectedTokenStyle = currentToken,
-                unlockedDiceStyles = unlockedDiceSet.ifEmpty { setOf(LudoDiceStyle.CLASSIC_DOTS) },
+                unlockedDiceStyles = (unlockedDiceSet + LudoDiceStyle.CLASSIC_DOTS),
                 selectedDiceStyle = currentDice,
                 sixUseCount = finalSixUseCount,
                 sixCooldownEndTime = finalSixCooldownEndTime,
@@ -763,11 +795,15 @@ class LudoViewModel : ViewModel() {
             LudoTheme.CLASSIC -> 0
             LudoTheme.COSMIC -> 3000
             LudoTheme.ROYAL -> 10000
-            LudoTheme.FOREST -> 25000
+            LudoTheme.FOREST -> 0
             LudoTheme.CANDY -> 50000
             LudoTheme.OCEAN -> 70000
             LudoTheme.CYBERPUNK -> 85000
             LudoTheme.EGYPT -> 100000
+            LudoTheme.GULF -> 120000
+            LudoTheme.INDONESIA -> 120000
+            LudoTheme.TURKEY -> 120000
+            LudoTheme.ISLAMIC -> 120000
         }
     }
 
@@ -972,9 +1008,14 @@ class LudoViewModel : ViewModel() {
         }
     }
 
-    fun startGame() {
+    fun startGame(isInternetOn: Boolean = true) {
         val mode = uiState.value.gameMode
         val lang = uiState.value.selectedLanguage
+        if (!isInternetAvailableInternal() || !isInternetOn) {
+            val msg = LudoTranslations.getTranslationWithFallback("internet_required_desc", lang)
+            _uiState.update { it.copy(statusMessage = msg) }
+            return
+        }
         if (mode == LudoGameMode.ONE_VS_ONE || mode == LudoGameMode.VS_COMPUTER) {
             val wager = uiState.value.selectedWagerAmount
             if (uiState.value.coins < wager) {
@@ -983,14 +1024,20 @@ class LudoViewModel : ViewModel() {
                 _uiState.update { it.copy(statusMessage = msg) }
                 return
             }
-            // Deduct wager
+        }
+
+        triggerAd(AdType.GAME_START, true)
+    }
+
+    private fun deductWagerAndStartGame() {
+        val mode = uiState.value.gameMode
+        if (mode == LudoGameMode.ONE_VS_ONE || mode == LudoGameMode.VS_COMPUTER) {
+            val wager = uiState.value.selectedWagerAmount
             val nextCoins = uiState.value.coins - wager
             _uiState.update { it.copy(coins = nextCoins) }
             sharedPrefs?.edit()?.putInt("coins", nextCoins)?.apply()
         }
-
-        // Trigger Interstitial/Simulated Ad when starting a match!
-        triggerAd(AdType.GAME_START)
+        actuallyStartGame()
     }
 
     private fun actuallyStartGame() {
@@ -1184,6 +1231,7 @@ class LudoViewModel : ViewModel() {
                 )
             }
         }
+        triggerAd(AdType.GAME_FINISH, isInternetAvailableInternal())
     }
 
     fun resetToSetup() {
@@ -1279,7 +1327,7 @@ class LudoViewModel : ViewModel() {
                     statusMessage = "🎲 ${currentPlayer.name} rolled a $roll. No valid moves possible!"
                 )
             }
-            delay(if (currentPlayer.type == PlayerType.BOT) 150L else 1000L)
+            delay(if (currentPlayer.type == PlayerType.BOT) 1500L else 1000L)
             passTurn()
         } else {
             // If player is Bot, make a decision automatically!
@@ -1292,7 +1340,7 @@ class LudoViewModel : ViewModel() {
                 if (roll == 6) {
                     triggerBotChat("ROLL_6", currentPlayer.id)
                 }
-                delay(100)
+                delay(1200L)
                 makeBotMove(validMoves)
             } else if (validMoves.size == 1) {
                 // Auto-move for human player if only 1 token can move!
@@ -1360,7 +1408,6 @@ class LudoViewModel : ViewModel() {
                 movingPlayerId = token.playerId
             ) 
         }
-        LudoAudioEngine.playTokenMove()
         viewModelScope.launch {
             val startPos = token.position
             val targetPos = if (startPos == 0) 1 else startPos + steps
@@ -1443,6 +1490,7 @@ class LudoViewModel : ViewModel() {
                 }
 
                 if (isHumanWinner) {
+                    timerJob?.cancel()
                     _uiState.update { 
                         it.copy(
                             isMovingToken = false,
@@ -1456,6 +1504,7 @@ class LudoViewModel : ViewModel() {
                     }
                     sharedPrefs?.edit()?.putInt("coins", nextCoins)?.apply()
                 } else {
+                    timerJob?.cancel()
                     _uiState.update { 
                         it.copy(
                             isMovingToken = false,
@@ -1468,6 +1517,7 @@ class LudoViewModel : ViewModel() {
                     }
                 }
                 triggerBotChat("WINNER", currentPlayer.id)
+                triggerAd(AdType.GAME_FINISH, isInternetAvailableInternal())
                 return
             } else {
                 LudoAudioEngine.playTokenReachedHome()
@@ -1499,37 +1549,45 @@ class LudoViewModel : ViewModel() {
                 }
             }
 
-            val isSafe = isSafeStar || isHomeStretch || hasTeammateJoint
+            // Check if there are opponent tokens on this cell
+            val opponentTokensOnCell = state.tokens.filter { oppToken ->
+                if (oppToken.playerId != movedToken.playerId && oppToken.position in 1..51) {
+                    val isTeammate = state.gameMode == LudoGameMode.TEAM_UP && (
+                        (movedToken.playerId == 0 && oppToken.playerId == 2) ||
+                        (movedToken.playerId == 2 && oppToken.playerId == 0) ||
+                        (movedToken.playerId == 1 && oppToken.playerId == 3) ||
+                        (movedToken.playerId == 3 && oppToken.playerId == 1)
+                    )
+                    if (isTeammate) {
+                        false
+                    } else {
+                        val oppCoord = LudoCoordinates.getTokenCoordinates(oppToken.playerId, oppToken.id, oppToken.position)
+                        oppCoord.first.toInt() == landedRow && oppCoord.second.toInt() == landedCol
+                    }
+                } else false
+            }
 
-            if (!isSafe) {
-                // Find opponent tokens at the same cell
-                val capturedToken = state.tokens.firstOrNull { oppToken ->
-                    if (oppToken.playerId != movedToken.playerId && oppToken.position in 1..51) {
-                        val isTeammate = state.gameMode == LudoGameMode.TEAM_UP && (
-                            (movedToken.playerId == 0 && oppToken.playerId == 2) ||
-                            (movedToken.playerId == 2 && oppToken.playerId == 0) ||
-                            (movedToken.playerId == 1 && oppToken.playerId == 3) ||
-                            (movedToken.playerId == 3 && oppToken.playerId == 1)
-                        )
-                        if (isTeammate) {
-                            false
-                        } else {
-                            val oppCoord = LudoCoordinates.getTokenCoordinates(oppToken.playerId, oppToken.id, oppToken.position)
-                            oppCoord.first.toInt() == landedRow && oppCoord.second.toInt() == landedCol
-                        }
-                    } else false
-                }
+            // Goti ka joda / joint block check on opponent tokens:
+            // If any single player has 2 or more of their own tokens on this cell, they form a joint block and cannot be captured!
+            val hasOpponentJointBlock = opponentTokensOnCell.groupBy { it.playerId }.any { (_, tokens) ->
+                tokens.size >= 2
+            }
 
-                if (capturedToken != null) {
-                    LudoAudioEngine.playTokenCaptured()
-                    awardExtraTurn = true
-                    // Reset opponent token to 0
+            val isSafe = isSafeStar || isHomeStretch || hasTeammateJoint || hasOpponentJointBlock
+
+            if (!isSafe && opponentTokensOnCell.isNotEmpty()) {
+                LudoAudioEngine.playTokenCaptured()
+                awardExtraTurn = true
+                
+                // Reset all opponent tokens on this cell back to 0
+                opponentTokensOnCell.forEach { capturedToken ->
                     updateTokenPosition(capturedToken, 0)
-                    val opponentPlayer = state.players.firstOrNull { it.id == capturedToken.playerId }
-                    val opponentName = opponentPlayer?.name ?: "Opponent"
-                    message = "💥 BOOM! ${currentPlayer.name} cut ${opponentName}'s token! Extra Roll!"
                     triggerBotChat("CAPTURED", currentPlayer.id, targetPlayerId = capturedToken.playerId)
                 }
+                
+                val names = opponentTokensOnCell.mapNotNull { t -> state.players.firstOrNull { it.id == t.playerId }?.name }.distinct()
+                val opponentNamesStr = names.joinToString(", ")
+                message = "💥 BOOM! ${currentPlayer.name} cut ${opponentNamesStr}'s token! Extra Roll!"
             }
         }
 
@@ -1591,6 +1649,7 @@ class LudoViewModel : ViewModel() {
             triggerBotIfNeeded()
         } else {
             // All players completed!
+            timerJob?.cancel()
             _uiState.update { 
                 it.copy(
                     isMovingToken = false,
@@ -1600,6 +1659,7 @@ class LudoViewModel : ViewModel() {
                     statusMessage = "Game completed!"
                 )
             }
+            triggerAd(AdType.GAME_FINISH, isInternetAvailableInternal())
         }
     }
 
@@ -1607,8 +1667,8 @@ class LudoViewModel : ViewModel() {
         val nextPlayer = getCurrentPlayer() ?: return
         if (nextPlayer.type == PlayerType.BOT) {
             viewModelScope.launch {
-                // Reduced from 350ms to 120ms for super-fast and snappy bot rolling
-                delay(120)
+                // Natural, elegant pause before bot rolls (1500ms)
+                delay(1500)
                 rollDice()
             }
         }
@@ -1710,6 +1770,18 @@ class LudoViewModel : ViewModel() {
         return state.players.firstOrNull { it.id == state.currentPlayerIdx }
     }
 
+    fun isInternetAvailableInternal(): Boolean {
+        val context = appContext ?: return false
+        return try {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun selectTheme(theme: LudoTheme) {
         val currentState = _uiState.value
         if (currentState.unlockedThemes.contains(theme)) {
@@ -1720,6 +1792,7 @@ class LudoViewModel : ViewModel() {
 
     fun selectLanguage(language: LudoLanguage) {
         _uiState.update { it.copy(selectedLanguage = language) }
+        sharedPrefs?.edit()?.putString("selected_language", language.name)?.apply()
         val state = _uiState.value
         if (state.gameMode == LudoGameMode.ONE_VS_ONE && state.coins < state.selectedWagerAmount) {
             val msg = LudoTranslations.getTranslation("not_enough_coins", language)
@@ -1728,7 +1801,13 @@ class LudoViewModel : ViewModel() {
         }
     }
 
-    fun triggerAd(type: AdType) {
+    fun triggerAd(type: AdType, isInternetOn: Boolean = true) {
+        if ((type == AdType.WATCH_AD || type == AdType.GUARANTEED_SIX || type == AdType.EXTEND_TIME) && !isInternetOn) {
+            val msg = LudoTranslations.getTranslationWithFallback("internet_required_for_reward", _uiState.value.selectedLanguage)
+            _uiState.update { it.copy(statusMessage = msg) }
+            return
+        }
+
         // Prepare countdown for backup simulated ad player
         _uiState.update { it.copy(adType = type, adSecondsLeft = 5, isRealAdShowing = false) }
         viewModelScope.launch {
@@ -1793,11 +1872,14 @@ class LudoViewModel : ViewModel() {
                     }
                     start1v1Timer()
                 }
-                AdType.GAME_FINISH, AdType.RESET -> {
+                AdType.GAME_FINISH -> {
+                    // Stay on winner/game-finished results screen
+                }
+                AdType.RESET -> {
                     resetToSetup()
                 }
                 AdType.GAME_START -> {
-                    actuallyStartGame()
+                    deductWagerAndStartGame()
                 }
                 AdType.WATCH_AD -> {
                     LudoAudioEngine.playTurnPass()
@@ -1828,7 +1910,21 @@ class LudoViewModel : ViewModel() {
     }
 
     fun dismissAd() {
+        val currentState = _uiState.value
+        val currentType = currentState.adType
         _uiState.update { it.copy(adType = null, isRealAdShowing = false) }
+        if (currentType != null) {
+            if (currentType == AdType.WATCH_AD || currentType == AdType.GUARANTEED_SIX || currentType == AdType.EXTEND_TIME) {
+                if (currentState.adSecondsLeft == 0) {
+                    onRealAdCompleted(currentType)
+                } else {
+                    val msg = LudoTranslations.getTranslationWithFallback("ad_skipped_no_reward", currentState.selectedLanguage)
+                    _uiState.update { it.copy(statusMessage = msg) }
+                }
+            } else {
+                onRealAdCompleted(currentType)
+            }
+        }
     }
 
     fun dismissTimeUpDialog() {

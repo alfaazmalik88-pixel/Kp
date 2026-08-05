@@ -51,6 +51,7 @@ fun LudoBoard(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.uiState.collectAsState()
     val currentPlayer = viewModel.getCurrentPlayer()
 
@@ -116,9 +117,9 @@ fun LudoBoard(
                 },
                 actions = {
                     IconButton(onClick = { viewModel.toggleSound() }) {
-                        Icon(
-                            imageVector = if (state.isSoundEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                            contentDescription = "Toggle Sound"
+                        Text(
+                            text = if (state.isSoundEnabled) "🔊" else "🔇",
+                            fontSize = 20.sp
                         )
                     }
                     IconButton(onClick = {
@@ -146,12 +147,20 @@ fun LudoBoard(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color(0xFF1E1B4B), Color(0xFF0F172A))
-                    )
-                )
         ) {
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                SkyThemeBackground()
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color(0xFF1E1B4B), Color(0xFF0F172A))
+                            )
+                        )
+                )
+            }
             val screenWidth = maxWidth
             val screenHeight = maxHeight
             
@@ -281,74 +290,104 @@ fun LudoBoard(
                                 0.05f
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(tokenSize)
-                                    .offset(
-                                        x = cellSize * (c + offsetFraction),
-                                        y = cellSize * (r + offsetFraction)
-                                    )
-                                    .then(modifierWithPulse)
-                                    .shadow(4.dp, CircleShape)
-                                    .background(token.color.value, CircleShape)
-                                    .border(
-                                        width = if (isTokenClickable) 2.5.dp else 1.5.dp,
-                                        color = if (isTokenClickable) Color(0xFFFFD700) else Color.White,
-                                        shape = CircleShape
-                                    )
-                                    .clickable(enabled = isTokenClickable) {
-                                        viewModel.selectTokenToMove(token)
-                                    }
-                                    .testTag("token_${token.playerId}_${token.id}"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Token adaptively renders the custom token style chosen by the user!
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    val emoji = when (state.selectedTokenStyle) {
-                                        LudoTokenStyle.CLASSIC_PIN -> {
-                                            // If classic pin, we adapt to the selected theme's default emoji style
-                                            when (state.selectedTheme) {
-                                                LudoTheme.CLASSIC -> null
-                                                LudoTheme.COSMIC -> "🚀"
-                                                LudoTheme.ROYAL -> "👑"
-                                                LudoTheme.FOREST -> "🍃"
-                                                LudoTheme.CANDY -> "🍬"
-                                                LudoTheme.OCEAN -> "🐠"
-                                                LudoTheme.CYBERPUNK -> "🔌"
-                                                LudoTheme.EGYPT -> "🏺"
-                                            }
-                                        }
-                                        else -> state.selectedTokenStyle.emoji
-                                    }
+                            val isForest3DPawn = state.selectedTheme == LudoTheme.FOREST && state.selectedTokenStyle == LudoTokenStyle.CLASSIC_PIN
 
-                                    if (emoji != null) {
-                                        Text(
-                                            text = emoji,
-                                            fontSize = if (isAtHome) 8.sp else if (tokenList.size > 1) 10.sp else 14.sp
+                            if (isForest3DPawn) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(tokenSize)
+                                        .offset(
+                                            x = cellSize * (c + offsetFraction),
+                                            y = cellSize * (r + offsetFraction)
                                         )
-                                        Text(
-                                            text = "${token.id + 1}",
-                                            fontSize = if (isAtHome) 5.sp else if (tokenList.size > 1) 7.sp else 9.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.White
+                                        .then(modifierWithPulse)
+                                        .clickable(enabled = isTokenClickable) {
+                                            viewModel.selectTokenToMove(token)
+                                        }
+                                        .testTag("token_${token.playerId}_${token.id}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Pawn3DPiece(
+                                        color = token.color.value,
+                                        number = token.id + 1,
+                                        isAtHome = isAtHome,
+                                        isTokenClickable = isTokenClickable
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(tokenSize)
+                                        .offset(
+                                            x = cellSize * (c + offsetFraction),
+                                            y = cellSize * (r + offsetFraction)
                                         )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(if (isAtHome) cellSize * 0.25f else if (tokenList.size > 1) cellSize * 0.35f else cellSize * 0.45f)
-                                                .background(Color.White.copy(alpha = 0.5f), CircleShape)
-                                                .border(1.dp, Color.White, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        .then(modifierWithPulse)
+                                        .shadow(4.dp, CircleShape)
+                                        .background(token.color.value, CircleShape)
+                                        .border(
+                                            width = if (isTokenClickable) 2.5.dp else 1.5.dp,
+                                            color = if (isTokenClickable) Color(0xFFFFD700) else Color.White,
+                                            shape = CircleShape
+                                        )
+                                        .clickable(enabled = isTokenClickable) {
+                                            viewModel.selectTokenToMove(token)
+                                        }
+                                        .testTag("token_${token.playerId}_${token.id}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Token adaptively renders the custom token style chosen by the user!
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        val emoji = when (state.selectedTokenStyle) {
+                                            LudoTokenStyle.CLASSIC_PIN -> {
+                                                // If classic pin, we adapt to the selected theme's default emoji style
+                                                when (state.selectedTheme) {
+                                                    LudoTheme.CLASSIC -> null
+                                                    LudoTheme.COSMIC -> "🚀"
+                                                    LudoTheme.ROYAL -> "👑"
+                                                    LudoTheme.FOREST -> "🍃"
+                                                    LudoTheme.CANDY -> "🍬"
+                                                    LudoTheme.OCEAN -> "🐠"
+                                                    LudoTheme.CYBERPUNK -> "🔌"
+                                                    LudoTheme.EGYPT -> "🏺"
+                                                    LudoTheme.GULF -> "💎"
+                                                    LudoTheme.INDONESIA -> "🪵"
+                                                    LudoTheme.TURKEY -> "🧿"
+                                                    LudoTheme.ISLAMIC -> "🌙"
+                                                }
+                                            }
+                                            else -> state.selectedTokenStyle.emoji
+                                        }
+
+                                        if (emoji != null) {
+                                            Text(
+                                                text = emoji,
+                                                fontSize = if (isAtHome) 8.sp else if (tokenList.size > 1) 10.sp else 14.sp
+                                            )
                                             Text(
                                                 text = "${token.id + 1}",
-                                                fontSize = if (isAtHome) 6.sp else if (tokenList.size > 1) 9.sp else 11.sp,
+                                                fontSize = if (isAtHome) 5.sp else if (tokenList.size > 1) 7.sp else 9.sp,
                                                 fontWeight = FontWeight.Black,
-                                                color = Color.Black
+                                                color = Color.White
                                             )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(if (isAtHome) cellSize * 0.25f else if (tokenList.size > 1) cellSize * 0.35f else cellSize * 0.45f)
+                                                    .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                                                    .border(1.dp, Color.White, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "${token.id + 1}",
+                                                    fontSize = if (isAtHome) 6.sp else if (tokenList.size > 1) 9.sp else 11.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.Black
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -370,68 +409,94 @@ fun LudoBoard(
                         val tokenSize = if (isAtHome) cellSize * 0.45f else cellSize * 0.9f
                         val offsetFraction = if (isAtHome) 0.275f else 0.05f
 
-                        Box(
-                            modifier = Modifier
-                                .size(tokenSize)
-                                .offset(
-                                    x = cellSize * (c + offsetFraction),
-                                    y = cellSize * (r + offsetFraction)
-                                )
-                                .shadow(6.dp, CircleShape)
-                                .background(activelyMovingToken.color.value, CircleShape)
-                                .border(
-                                    width = 2.dp,
-                                    color = Color.White,
-                                    shape = CircleShape
-                                )
-                                .testTag("moving_token_${activelyMovingToken.playerId}_${activelyMovingToken.id}"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                val emoji = when (state.selectedTokenStyle) {
-                                    LudoTokenStyle.CLASSIC_PIN -> {
-                                        when (state.selectedTheme) {
-                                            LudoTheme.CLASSIC -> null
-                                            LudoTheme.COSMIC -> "🚀"
-                                            LudoTheme.ROYAL -> "👑"
-                                            LudoTheme.FOREST -> "🍃"
-                                            LudoTheme.CANDY -> "🍬"
-                                            LudoTheme.OCEAN -> "🐠"
-                                            LudoTheme.CYBERPUNK -> "🔌"
-                                            LudoTheme.EGYPT -> "🏺"
-                                        }
-                                    }
-                                    else -> state.selectedTokenStyle.emoji
-                                }
+                        val isForest3DPawn = state.selectedTheme == LudoTheme.FOREST && state.selectedTokenStyle == LudoTokenStyle.CLASSIC_PIN
 
-                                if (emoji != null) {
-                                    Text(
-                                        text = emoji,
-                                        fontSize = if (isAtHome) 8.sp else 14.sp
+                        if (isForest3DPawn) {
+                            Box(
+                                modifier = Modifier
+                                    .size(tokenSize)
+                                    .offset(
+                                        x = cellSize * (c + offsetFraction),
+                                        y = cellSize * (r + offsetFraction)
                                     )
-                                    Text(
-                                        text = "${activelyMovingToken.id + 1}",
-                                        fontSize = if (isAtHome) 5.sp else 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                    .testTag("moving_token_${activelyMovingToken.playerId}_${activelyMovingToken.id}"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Pawn3DPiece(
+                                    color = activelyMovingToken.color.value,
+                                    number = activelyMovingToken.id + 1,
+                                    isAtHome = isAtHome,
+                                    isTokenClickable = false
+                                )
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(tokenSize)
+                                    .offset(
+                                        x = cellSize * (c + offsetFraction),
+                                        y = cellSize * (r + offsetFraction)
                                     )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(if (isAtHome) cellSize * 0.25f else cellSize * 0.45f)
-                                            .background(Color.White.copy(alpha = 0.5f), CircleShape)
-                                            .border(1.dp, Color.White, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
+                                    .shadow(6.dp, CircleShape)
+                                    .background(activelyMovingToken.color.value, CircleShape)
+                                    .border(
+                                        width = 2.dp,
+                                        color = Color.White,
+                                        shape = CircleShape
+                                    )
+                                    .testTag("moving_token_${activelyMovingToken.playerId}_${activelyMovingToken.id}"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    val emoji = when (state.selectedTokenStyle) {
+                                        LudoTokenStyle.CLASSIC_PIN -> {
+                                            when (state.selectedTheme) {
+                                                LudoTheme.CLASSIC -> null
+                                                LudoTheme.COSMIC -> "🚀"
+                                                LudoTheme.ROYAL -> "👑"
+                                                LudoTheme.FOREST -> "🍃"
+                                                LudoTheme.CANDY -> "🍬"
+                                                LudoTheme.OCEAN -> "🐠"
+                                                LudoTheme.CYBERPUNK -> "🔌"
+                                                LudoTheme.EGYPT -> "🏺"
+                                                LudoTheme.GULF -> "💎"
+                                                LudoTheme.INDONESIA -> "🪵"
+                                                LudoTheme.TURKEY -> "🧿"
+                                                LudoTheme.ISLAMIC -> "🌙"
+                                            }
+                                        }
+                                        else -> state.selectedTokenStyle.emoji
+                                    }
+
+                                    if (emoji != null) {
+                                        Text(
+                                            text = emoji,
+                                            fontSize = if (isAtHome) 8.sp else 14.sp
+                                        )
                                         Text(
                                             text = "${activelyMovingToken.id + 1}",
-                                            fontSize = if (isAtHome) 6.sp else 11.sp,
+                                            fontSize = if (isAtHome) 5.sp else 9.sp,
                                             fontWeight = FontWeight.Black,
-                                            color = Color.Black
+                                            color = Color.White
                                         )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(if (isAtHome) cellSize * 0.25f else cellSize * 0.45f)
+                                                .background(Color.White.copy(alpha = 0.5f), CircleShape)
+                                                .border(1.dp, Color.White, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${activelyMovingToken.id + 1}",
+                                                fontSize = if (isAtHome) 6.sp else 11.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.Black
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -469,7 +534,7 @@ fun LudoBoard(
                     val now = System.currentTimeMillis()
                     val isSixCooldownActive = state.sixCooldownEndTime > 0L && now < state.sixCooldownEndTime
                     val isEligibleForSix = isHumanTurn && !state.nextRollIsSix && !isSixCooldownActive
-                    val btnEnabled = (isEligibleForSix || state.nextRollIsSix) && !isSixCooldownActive
+                    val btnEnabled = isEligibleForSix
 
                     val getSixText = LudoTranslations.getTranslation("get_six", state.selectedLanguage)
                     val buttonText = if (isSixCooldownActive) {
@@ -496,7 +561,7 @@ fun LudoBoard(
                                 .height(26.dp)
                                 .shadow(if (btnEnabled) 2.dp else 0.dp, RoundedCornerShape(13.dp))
                                 .clickable(enabled = btnEnabled) {
-                                    viewModel.triggerAd(AdType.GUARANTEED_SIX)
+                                    viewModel.triggerAd(AdType.GUARANTEED_SIX, isInternetAvailable(context))
                                 },
                             shape = RoundedCornerShape(13.dp),
                             colors = CardDefaults.cardColors(
@@ -576,7 +641,7 @@ fun LudoBoard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.EmojiEvents,
+                                    imageVector = Icons.Default.Star,
                                     contentDescription = "Winner",
                                     tint = Color.White,
                                     modifier = Modifier.size(56.dp)
@@ -637,7 +702,7 @@ fun LudoBoard(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.MonetizationOn,
+                                    imageVector = Icons.Default.Star,
                                     contentDescription = "Coins",
                                     tint = Color(0xFFFFD700),
                                     modifier = Modifier.size(24.dp)
@@ -665,15 +730,34 @@ fun LudoBoard(
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
                                 modifier = Modifier.fillMaxWidth().height(48.dp)
                             ) {
-                                Text("REPLAY MATCH", fontWeight = FontWeight.Black, color = Color.White)
+                                Text(
+                                    text = LudoTranslations.getTranslationWithFallback("next_match", state.selectedLanguage),
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.White
+                                )
+                            }
+
+                            Button(
+                                onClick = { viewModel.triggerAd(AdType.WATCH_AD, isInternetAvailable(context)) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFD700)),
+                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                            ) {
+                                Text(
+                                    text = LudoTranslations.getTranslationWithFallback("watch_ad_reward", state.selectedLanguage),
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.Black
+                                )
                             }
 
                             OutlinedButton(
-                                onClick = { viewModel.triggerAd(AdType.GAME_FINISH) },
+                                onClick = { viewModel.resetToSetup() },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
                             ) {
-                                Text("RETURN TO SETUP", fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = LudoTranslations.getTranslationWithFallback("go_to_home", state.selectedLanguage),
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -702,7 +786,7 @@ fun LudoBoard(
                 Button(
                     onClick = {
                         showBackConfirmation = false
-                        viewModel.triggerAd(AdType.GAME_FINISH)
+                        viewModel.resetToSetup()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48))
                 ) {
@@ -742,7 +826,7 @@ fun LudoBoard(
                 Button(
                     onClick = {
                         showResetConfirmation = false
-                        viewModel.triggerAd(AdType.RESET)
+                        viewModel.resetToSetup()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48))
                 ) {
@@ -814,8 +898,20 @@ fun LudoBoard(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.dismissAd() }) {
-                    Text("Skip Ad", color = Color.White.copy(alpha = 0.6f))
+                val isCompleted = state.adSecondsLeft == 0
+                val btnText = if (isCompleted) {
+                    LudoTranslations.getTranslationWithFallback("claim_reward", state.selectedLanguage)
+                } else {
+                    LudoTranslations.getTranslationWithFallback("skip_ad", state.selectedLanguage)
+                }
+                Button(
+                    onClick = { viewModel.dismissAd() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isCompleted) Color(0xFF10B981) else Color.White.copy(alpha = 0.2f),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text(text = btnText, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = Color(0xFF1E1B4B),
@@ -846,7 +942,7 @@ fun LudoBoard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Button(
-                        onClick = { viewModel.triggerAd(AdType.EXTEND_TIME) },
+                        onClick = { viewModel.triggerAd(AdType.EXTEND_TIME, isInternetAvailable(context)) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
@@ -893,7 +989,7 @@ fun LudoBoard(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Button(
-                        onClick = { viewModel.triggerAd(AdType.EXTEND_TIME) },
+                        onClick = { viewModel.triggerAd(AdType.EXTEND_TIME, isInternetAvailable(context)) },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
@@ -999,6 +1095,10 @@ fun LudoBoardGrid(
         LudoTheme.OCEAN -> Color(0xFFECFEFF)   // Sky cyan/blue
         LudoTheme.CYBERPUNK -> Color(0xFF1E1B4B) // Dark neon purple
         LudoTheme.EGYPT -> Color(0xFFFEF3C7)   // Golden desert sand
+        LudoTheme.GULF -> Color(0xFFFFFDF0)    // Royal gold ivory
+        LudoTheme.INDONESIA -> Color(0xFFFBF4EB) // Earth warm batik wood
+        LudoTheme.TURKEY -> Color(0xFFF0F9FF)    // Iznik blue-marble white
+        LudoTheme.ISLAMIC -> Color(0xFFF0FDFA)  // Emerald-teal peace ivory
     }
     val starColor = when (state.selectedTheme) {
         LudoTheme.CLASSIC -> Color(0xFF94A3B8)
@@ -1009,6 +1109,10 @@ fun LudoBoardGrid(
         LudoTheme.OCEAN -> Color(0xFF06B6D4)   // Deep cyan ocean
         LudoTheme.CYBERPUNK -> Color(0xFFF43F5E) // Cyber neon rose
         LudoTheme.EGYPT -> Color(0xFFD97706)   // Amber gold
+        LudoTheme.GULF -> Color(0xFFD4AF37)    // Luxury royal gold
+        LudoTheme.INDONESIA -> Color(0xFF8B5A2B) // Deep batik bronze brown
+        LudoTheme.TURKEY -> Color(0xFF1D4ED8)   // Ottoman cobalt blue
+        LudoTheme.ISLAMIC -> Color(0xFF0D9488)  // Islamic turquoise
     }
 
     // Dynamic color mapping based on players currently assigned to each base index.
@@ -1030,43 +1134,98 @@ fun LudoBoardGrid(
                 val isCenterHome = row in 6..8 && col in 6..8
 
                 if (!isRedBase && !isGreenBase && !isYellowBase && !isBlueBase && !isCenterHome) {
-                    // Path cell rendering
                     val isSafeStar = LudoCoordinates.isCellSafe(row, col)
 
-                    // Color coordinate-specific cells
-                    val cellColor = when {
-                        // Home stretch corridors (mapped to dynamic corner colors)
-                        row == 7 && col in 1..5 -> color0.value
-                        col == 7 && row in 1..5 -> color1.value
-                        row == 7 && col in 9..13 -> color2.value
-                        col == 7 && row in 9..13 -> color3.value
+                    if (state.selectedTheme == LudoTheme.FOREST) {
+                        // Checkered grass background colors
+                        val grassBgColor = if ((row + col) % 2 == 0) Color(0xFF9ED861) else Color(0xFF89C54F)
                         
-                        // Starting arrow point cells
-                        row == 6 && col == 1 -> color0.value
-                        row == 1 && col == 8 -> color1.value
-                        row == 8 && col == 13 -> color2.value
-                        row == 13 && col == 6 -> color3.value
+                        // Check if it's a corridor or starting spot
+                        val spotColor = when {
+                            row == 7 && col in 1..5 -> color0.value
+                            col == 7 && row in 1..5 -> color1.value
+                            row == 7 && col in 9..13 -> color2.value
+                            col == 7 && row in 9..13 -> color3.value
+                            
+                            row == 6 && col == 1 -> color0.value
+                            row == 1 && col == 8 -> color1.value
+                            row == 8 && col == 13 -> color2.value
+                            row == 13 && col == 6 -> color3.value
+                            
+                            else -> null
+                        }
 
-                        // Standard path backgrounds
-                        else -> emptyCellColor
-                    }
+                        Box(
+                            modifier = Modifier
+                                .size(cellSize)
+                                .offset(x = cellSize * col, y = cellSize * row)
+                                .background(grassBgColor)
+                                .border(0.5.dp, Color(0xFF7CB342)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (spotColor != null) {
+                                // Draw a beautiful glossy circular node spot for the player track!
+                                Box(
+                                    modifier = Modifier
+                                        .size(cellSize * 0.72f)
+                                        .background(spotColor, CircleShape)
+                                        .border(1.5.dp, Color.White, CircleShape)
+                                        .shadow(1.dp, CircleShape)
+                                )
+                            } else if (isSafeStar) {
+                                // Render a protective star on safe cells
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = "Safe Zone Star",
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(cellSize * 0.75f)
+                                )
+                            } else {
+                                // Regular path circular marker spot (yellow/light green translucent spot)
+                                Box(
+                                    modifier = Modifier
+                                        .size(cellSize * 0.45f)
+                                        .background(Color(0xFFE2F1D0).copy(alpha = 0.8f), CircleShape)
+                                        .border(1.dp, Color(0xFF7CB342), CircleShape)
+                                )
+                            }
+                        }
+                    } else {
+                        // Color coordinate-specific cells
+                        val cellColor = when {
+                            // Home stretch corridors (mapped to dynamic corner colors)
+                            row == 7 && col in 1..5 -> color0.value
+                            col == 7 && row in 1..5 -> color1.value
+                            row == 7 && col in 9..13 -> color2.value
+                            col == 7 && row in 9..13 -> color3.value
+                            
+                            // Starting arrow point cells
+                            row == 6 && col == 1 -> color0.value
+                            row == 1 && col == 8 -> color1.value
+                            row == 8 && col == 13 -> color2.value
+                            row == 13 && col == 6 -> color3.value
 
-                    Box(
-                        modifier = Modifier
-                            .size(cellSize)
-                            .offset(x = cellSize * col, y = cellSize * row)
-                            .background(cellColor)
-                            .border(0.5.dp, Color(0xFFCBD5E1)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isSafeStar) {
-                            // Render a protective star on safe cells
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = "Safe Zone Star",
-                                tint = if (cellColor == emptyCellColor) starColor else Color.White,
-                                modifier = Modifier.size(cellSize * 0.7f)
-                            )
+                            // Standard path backgrounds
+                            else -> emptyCellColor
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(cellSize)
+                                .offset(x = cellSize * col, y = cellSize * row)
+                                .background(cellColor)
+                                .border(0.5.dp, Color(0xFFCBD5E1)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSafeStar) {
+                                // Render a protective star on safe cells
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = "Safe Zone Star",
+                                    tint = if (cellColor == emptyCellColor) starColor else Color.White,
+                                    modifier = Modifier.size(cellSize * 0.7f)
+                                )
+                            }
                         }
                     }
                 }
@@ -1080,6 +1239,7 @@ fun LudoBoardGrid(
             color = color0,
             isTeamUp = isTeamUp,
             teamLabel = "TEAM A",
+            theme = state.selectedTheme,
             modifier = Modifier
                 .size(cellSize * 6)
                 .offset(x = 0.dp, y = 0.dp)
@@ -1090,6 +1250,7 @@ fun LudoBoardGrid(
             color = color1,
             isTeamUp = isTeamUp,
             teamLabel = "TEAM B",
+            theme = state.selectedTheme,
             modifier = Modifier
                 .size(cellSize * 6)
                 .offset(x = cellSize * 9, y = 0.dp)
@@ -1100,6 +1261,7 @@ fun LudoBoardGrid(
             color = color2,
             isTeamUp = isTeamUp,
             teamLabel = "TEAM A",
+            theme = state.selectedTheme,
             modifier = Modifier
                 .size(cellSize * 6)
                 .offset(x = cellSize * 9, y = cellSize * 9)
@@ -1110,10 +1272,43 @@ fun LudoBoardGrid(
             color = color3,
             isTeamUp = isTeamUp,
             teamLabel = "TEAM B",
+            theme = state.selectedTheme,
             modifier = Modifier
                 .size(cellSize * 6)
                 .offset(x = 0.dp, y = cellSize * 9)
         )
+
+        // Render Wooden Bridges for Forest theme
+        if (state.selectedTheme == LudoTheme.FOREST) {
+            // Top-Left Bridge (Blue start, row 5 -> 6 at col 1)
+            WoodenBridge(
+                cellSize = cellSize,
+                isHorizontal = true,
+                modifier = Modifier
+                    .offset(x = cellSize * 1, y = cellSize * 5.3f)
+            )
+            // Top-Right Bridge (Red start, col 9 -> 8 at row 1)
+            WoodenBridge(
+                cellSize = cellSize,
+                isHorizontal = false,
+                modifier = Modifier
+                    .offset(x = cellSize * 8.3f, y = cellSize * 1)
+            )
+            // Bottom-Right Bridge (Green start, row 9 -> 8 at col 13)
+            WoodenBridge(
+                cellSize = cellSize,
+                isHorizontal = true,
+                modifier = Modifier
+                    .offset(x = cellSize * 13, y = cellSize * 8.3f)
+            )
+            // Bottom-Left Bridge (Yellow start, col 5 -> 6 at row 13)
+            WoodenBridge(
+                cellSize = cellSize,
+                isHorizontal = false,
+                modifier = Modifier
+                    .offset(x = cellSize * 5.3f, y = cellSize * 13)
+            )
+        }
 
         // 6. Draw central home cross intersection meeting using clean Canvas
         Canvas(
@@ -1133,7 +1328,18 @@ fun LudoBoardGrid(
                 lineTo(0f, h)
                 close()
             }
-            drawPath(redPath, color0.value)
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                drawPath(
+                    path = redPath,
+                    brush = Brush.radialGradient(
+                        colors = listOf(color0.value, color0.value.copy(alpha = 0.6f)),
+                        center = Offset(0f, h / 2f),
+                        radius = w
+                    )
+                )
+            } else {
+                drawPath(redPath, color0.value)
+            }
 
             // Top Home Triangle (corresponds to dynamic color1)
             val greenPath = Path().apply {
@@ -1142,7 +1348,18 @@ fun LudoBoardGrid(
                 lineTo(center.x, center.y)
                 close()
             }
-            drawPath(greenPath, color1.value)
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                drawPath(
+                    path = greenPath,
+                    brush = Brush.radialGradient(
+                        colors = listOf(color1.value, color1.value.copy(alpha = 0.6f)),
+                        center = Offset(w / 2f, 0f),
+                        radius = h
+                    )
+                )
+            } else {
+                drawPath(greenPath, color1.value)
+            }
 
             // Right Home Triangle (corresponds to dynamic color2)
             val yellowPath = Path().apply {
@@ -1151,7 +1368,18 @@ fun LudoBoardGrid(
                 lineTo(center.x, center.y)
                 close()
             }
-            drawPath(yellowPath, color2.value)
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                drawPath(
+                    path = yellowPath,
+                    brush = Brush.radialGradient(
+                        colors = listOf(color2.value, color2.value.copy(alpha = 0.6f)),
+                        center = Offset(w, h / 2f),
+                        radius = w
+                    )
+                )
+            } else {
+                drawPath(yellowPath, color2.value)
+            }
 
             // Bottom Home Triangle (corresponds to dynamic color3)
             val bluePath = Path().apply {
@@ -1160,7 +1388,38 @@ fun LudoBoardGrid(
                 lineTo(w, h)
                 close()
             }
-            drawPath(bluePath, color3.value)
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                drawPath(
+                    path = bluePath,
+                    brush = Brush.radialGradient(
+                        colors = listOf(color3.value, color3.value.copy(alpha = 0.6f)),
+                        center = Offset(w / 2f, h),
+                        radius = h
+                    )
+                )
+            } else {
+                drawPath(bluePath, color3.value)
+            }
+
+            // Draw center crest for Forest Theme
+            if (state.selectedTheme == LudoTheme.FOREST) {
+                drawCircle(
+                    color = Color(0xFFFFD700),
+                    radius = w * 0.15f,
+                    center = center
+                )
+                drawCircle(
+                    color = Color(0xFFB58D00),
+                    radius = w * 0.11f,
+                    center = center
+                )
+                // Draw a small decorative center circle
+                drawCircle(
+                    color = Color.White,
+                    radius = w * 0.05f,
+                    center = center
+                )
+            }
         }
     }
 }
@@ -1170,60 +1429,138 @@ fun BaseArea(
     color: LudoColor,
     isTeamUp: Boolean,
     teamLabel: String,
+    theme: LudoTheme,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .background(color.value)
-            .border(1.dp, Color(0xFF94A3B8)),
-        contentAlignment = Alignment.Center
-    ) {
-        // Safe inner board white pocket card
-        Card(
-            modifier = Modifier
-                .fillMaxSize(0.72f)
-                .shadow(2.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                if (isTeamUp) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.Center)
-                            .background(color.value.copy(alpha = 0.08f))
-                            .padding(vertical = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = teamLabel,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
-                            color = color.value.copy(alpha = 0.85f),
-                            letterSpacing = 1.sp
-                        )
+    if (theme == LudoTheme.FOREST) {
+        // Floating 3D Grass Island
+        Box(modifier = modifier) {
+            // 3D Soil bottom layer (soil brown)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF5D4037), RoundedCornerShape(16.dp))
+            )
+            // Lush Grass top layer, offset upwards by 4dp to create a 3D ledge
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = (-4).dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color(0xFF9ED861), Color(0xFF689F38))
+                        ),
+                        RoundedCornerShape(16.dp)
+                    )
+                    .border(1.5.dp, Color(0xFFC5E1A5), RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                // Inside the grass island is the player color card!
+                Card(
+                    modifier = Modifier
+                        .fillMaxSize(0.72f)
+                        .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = color.value)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (isTeamUp) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.Center)
+                                    .background(Color.White.copy(alpha = 0.15f))
+                                    .padding(vertical = 4.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = teamLabel,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    color = Color.White,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+                        // Draw 4 yard pockets circles where pieces reside
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                            ) {
+                                PocketCircle(color = color.value, theme = theme)
+                                PocketCircle(color = color.value, theme = theme)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                            ) {
+                                PocketCircle(color = color.value, theme = theme)
+                                PocketCircle(color = color.value, theme = theme)
+                            }
+                        }
                     }
                 }
-                // Draw 4 yard pockets circles where pieces reside
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
-                    ) {
-                        PocketCircle(color = color.value)
-                        PocketCircle(color = color.value)
+            }
+        }
+    } else {
+        Box(
+            modifier = modifier
+                .background(color.value)
+                .border(1.dp, Color(0xFF94A3B8)),
+            contentAlignment = Alignment.Center
+        ) {
+            // Safe inner board white pocket card
+            Card(
+                modifier = Modifier
+                    .fillMaxSize(0.72f)
+                    .shadow(2.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (isTeamUp) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.Center)
+                                .background(color.value.copy(alpha = 0.08f))
+                                .padding(vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = teamLabel,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                color = color.value.copy(alpha = 0.85f),
+                                letterSpacing = 1.sp
+                            )
+                        }
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                    // Draw 4 yard pockets circles where pieces reside
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        PocketCircle(color = color.value)
-                        PocketCircle(color = color.value)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                        ) {
+                            PocketCircle(color = color.value, theme = theme)
+                            PocketCircle(color = color.value, theme = theme)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                        ) {
+                            PocketCircle(color = color.value, theme = theme)
+                            PocketCircle(color = color.value, theme = theme)
+                        }
                     }
                 }
             }
@@ -1232,19 +1569,35 @@ fun BaseArea(
 }
 
 @Composable
-fun PocketCircle(color: Color) {
-    Box(
-        modifier = Modifier
-            .size(24.dp)
-            .background(color.copy(alpha = 0.15f), CircleShape)
-            .border(1.5.dp, color, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
+fun PocketCircle(color: Color, theme: LudoTheme) {
+    if (theme == LudoTheme.FOREST) {
         Box(
             modifier = Modifier
-                .size(8.dp)
-                .background(color, CircleShape)
-        )
+                .size(24.dp)
+                .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                .border(1.5.dp, Color.White, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(Color.White, CircleShape)
+            )
+        }
+    } else {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .background(color.copy(alpha = 0.15f), CircleShape)
+                .border(1.5.dp, color, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(color, CircleShape)
+            )
+        }
     }
 }
 
@@ -1401,12 +1754,16 @@ fun PlayerCornerCard(
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(13.dp)
-                                )
+                                if (player.type == PlayerType.BOT) {
+                                    Text("🤖", fontSize = 11.sp)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
                             }
                         } else {
                             // Left-side players: User / Bot profile icon first (outer edge), then Team label, then Dice / Pansa (inner edge)
@@ -1418,12 +1775,16 @@ fun PlayerCornerCard(
                                     .border(1.5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = if (player.type == PlayerType.BOT) Icons.Default.Android else Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(13.dp)
-                                )
+                                if (player.type == PlayerType.BOT) {
+                                    Text("🤖", fontSize = 11.sp)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
                             }
 
                             // 2. Beautiful interactive Dice / Pansa
@@ -1643,6 +2004,268 @@ fun ChatBubble(
                     lineHeight = 14.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun WoodenBridge(
+    cellSize: androidx.compose.ui.unit.Dp,
+    isHorizontal: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val width = if (isHorizontal) cellSize else cellSize * 0.45f
+    val height = if (isHorizontal) cellSize * 0.45f else cellSize
+    
+    Box(
+        modifier = modifier
+            .size(width, height)
+            .shadow(4.dp, RoundedCornerShape(4.dp))
+            .background(Color(0xFF8D6E63), RoundedCornerShape(4.dp)) // warm wood color
+            .border(1.dp, Color(0xFF5D4037), RoundedCornerShape(4.dp))
+    ) {
+        // Draw slats or ropes on the wooden bridge
+        if (isHorizontal) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                for (i in 0..3) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(2.dp)
+                            .background(Color(0xFF5D4037))
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                for (i in 0..3) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(Color(0xFF5D4037))
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SkyThemeBackground(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1. Midnight to indigo background sky gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF1E2640), // Cosmic Midnight
+                            Color(0xFF2E3E75), // Dark Royal
+                            Color(0xFF4C61AD), // Sky Blue-Lavender
+                            Color(0xFF637DC9)  // Glowing bottom sky
+                        )
+                    )
+                )
+        )
+        
+        // 2. Sparkles & translucent floating clouds
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            
+            // Sparkling stars
+            val starPositions = listOf(
+                Offset(w * 0.12f, h * 0.12f),
+                Offset(w * 0.28f, h * 0.08f),
+                Offset(w * 0.85f, h * 0.15f),
+                Offset(w * 0.92f, h * 0.32f),
+                Offset(w * 0.15f, h * 0.45f),
+                Offset(w * 0.82f, h * 0.55f),
+                Offset(w * 0.22f, h * 0.78f),
+                Offset(w * 0.78f, h * 0.84f),
+                Offset(w * 0.45f, h * 0.89f)
+            )
+            
+            starPositions.forEach { pos ->
+                // Draw star shape
+                val path = Path().apply {
+                    moveTo(pos.x, pos.y - 7f)
+                    lineTo(pos.x + 2.5f, pos.y - 2.5f)
+                    lineTo(pos.x + 7f, pos.y)
+                    lineTo(pos.x + 2.5f, pos.y + 2.5f)
+                    lineTo(pos.x, pos.y + 7f)
+                    lineTo(pos.x - 2.5f, pos.y + 2.5f)
+                    lineTo(pos.x - 7f, pos.y)
+                    lineTo(pos.x - 2.5f, pos.y - 2.5f)
+                    close()
+                }
+                drawPath(path, Color.White.copy(alpha = 0.75f))
+                drawCircle(Color.White.copy(alpha = 0.2f), radius = 10f, center = pos)
+            }
+            
+            // Translucent puffy clouds
+            // Top Left Cloud cluster
+            drawCircle(
+                color = Color.White.copy(alpha = 0.12f),
+                radius = w * 0.35f,
+                center = Offset(w * 0.1f, h * 0.15f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.1f),
+                radius = w * 0.28f,
+                center = Offset(w * 0.32f, h * 0.18f)
+            )
+            
+            // Middle Right Cloud cluster
+            drawCircle(
+                color = Color.White.copy(alpha = 0.08f),
+                radius = w * 0.42f,
+                center = Offset(w * 0.95f, h * 0.38f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.08f),
+                radius = w * 0.32f,
+                center = Offset(w * 0.78f, h * 0.34f)
+            )
+            
+            // Bottom Cloud cluster
+            drawCircle(
+                color = Color.White.copy(alpha = 0.15f),
+                radius = w * 0.38f,
+                center = Offset(w * 0.5f, h * 0.94f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.15f),
+                radius = w * 0.28f,
+                center = Offset(w * 0.2f, h * 0.90f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.15f),
+                radius = w * 0.3f,
+                center = Offset(w * 0.8f, h * 0.92f)
+            )
+        }
+    }
+}
+
+@Composable
+fun Pawn3DPiece(
+    color: Color,
+    number: Int,
+    isAtHome: Boolean,
+    isTokenClickable: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            
+            // Draw a beautiful pulsing gold ring under the pawn base if clickable
+            if (isTokenClickable) {
+                drawCircle(
+                    color = Color(0xFFFFD700).copy(alpha = 0.35f),
+                    radius = w * 0.48f,
+                    center = Offset(w * 0.5f, h * 0.76f)
+                )
+                drawCircle(
+                    color = Color(0xFFFFD700),
+                    radius = w * 0.43f,
+                    center = Offset(w * 0.5f, h * 0.76f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f)
+                )
+            }
+
+            // Draw a beautiful 3D wooden-glossy pawn
+            // Base shadow
+            drawOval(
+                color = Color.Black.copy(alpha = 0.28f),
+                topLeft = Offset(w * 0.15f, h * 0.72f),
+                size = androidx.compose.ui.geometry.Size(w * 0.7f, h * 0.22f)
+            )
+            
+            // Base layer (elliptical bottom of the pawn)
+            val baseBrush = Brush.verticalGradient(
+                colors = listOf(color, color.copy(alpha = 0.65f))
+            )
+            drawOval(
+                brush = baseBrush,
+                topLeft = Offset(w * 0.18f, h * 0.62f),
+                size = androidx.compose.ui.geometry.Size(w * 0.64f, h * 0.26f)
+            )
+            
+            // Base reflection/glossy rim
+            drawOval(
+                color = Color.White.copy(alpha = 0.38f),
+                topLeft = Offset(w * 0.24f, h * 0.64f),
+                size = androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.08f)
+            )
+            
+            // Neck / Body (from base up to neck)
+            val bodyPath = Path().apply {
+                moveTo(w * 0.34f, h * 0.70f)
+                quadraticTo(w * 0.41f, h * 0.44f, w * 0.39f, h * 0.34f)
+                lineTo(w * 0.61f, h * 0.34f)
+                quadraticTo(w * 0.59f, h * 0.44f, w * 0.66f, h * 0.70f)
+                close()
+            }
+            drawPath(path = bodyPath, brush = baseBrush)
+            
+            // Neck collar ring
+            drawOval(
+                color = color.copy(alpha = 0.85f),
+                topLeft = Offset(w * 0.37f, h * 0.31f),
+                size = androidx.compose.ui.geometry.Size(w * 0.26f, h * 0.08f)
+            )
+            
+            // Head (circle at the top)
+            val headCenter = Offset(w * 0.5f, h * 0.21f)
+            val headRadius = w * 0.21f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.45f), color),
+                    center = Offset(headCenter.x - headRadius * 0.3f, headCenter.y - headRadius * 0.3f),
+                    radius = headRadius * 1.4f
+                ),
+                radius = headRadius,
+                center = headCenter
+            )
+            
+            // White highlight reflection on the head
+            drawCircle(
+                color = Color.White.copy(alpha = 0.6f),
+                radius = headRadius * 0.24f,
+                center = Offset(headCenter.x - headRadius * 0.35f, headCenter.y - headRadius * 0.35f)
+            )
+        }
+        
+        // Draw the number neatly on the pawn base!
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = (-1).dp)
+                .size(if (isAtHome) 10.dp else 12.dp)
+                .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                .border(0.5.dp, color, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "$number",
+                fontSize = if (isAtHome) 6.sp else 8.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.Black
+            )
         }
     }
 }
