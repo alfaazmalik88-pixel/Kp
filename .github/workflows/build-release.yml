@@ -20,9 +20,8 @@ jobs:
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
-
-    - name: Clean Project
-      run: gradle clean
+      with:
+        gradle-version: '8.5'
 
     - name: Build Release APK
       env:
