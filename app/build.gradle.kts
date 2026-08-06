@@ -39,17 +39,27 @@ android {
         keyAlias = System.getenv("KEY_ALIAS") ?: "ludoprime"
         keyPassword = System.getenv("KEY_PASSWORD") ?: "ludoprime123"
       } else {
-        val relFile = file("${rootDir}/release.keystore")
-        if (relFile.exists()) {
-          storeFile = relFile
-          storePassword = "ludoprime123"
-          keyAlias = "ludoprime"
-          keyPassword = "ludoprime123"
-        } else {
-          storeFile = file("${rootDir}/debug.keystore")
-          storePassword = "android"
-          keyAlias = "androiddebugkey"
-          keyPassword = "android"
+        val relJks = file("${rootDir}/release.jks")
+        val relKeystore = file("${rootDir}/release.keystore")
+        when {
+          relJks.exists() -> {
+            storeFile = relJks
+            storePassword = "ludoprime123"
+            keyAlias = "ludoprime"
+            keyPassword = "ludoprime123"
+          }
+          relKeystore.exists() -> {
+            storeFile = relKeystore
+            storePassword = "ludoprime123"
+            keyAlias = "ludoprime"
+            keyPassword = "ludoprime123"
+          }
+          else -> {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+          }
         }
       }
     }
