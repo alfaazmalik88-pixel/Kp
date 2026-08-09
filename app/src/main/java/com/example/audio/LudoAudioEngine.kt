@@ -44,6 +44,7 @@ object LudoAudioEngine {
             }
         }
 
+    @Synchronized
     private fun getSfxTrack(): AudioTrack? {
         if (!isSoundEnabled) {
             releaseSfxTrack()
@@ -55,11 +56,12 @@ object LudoAudioEngine {
                 track?.release()
             } catch (e: Exception) {}
             try {
-                val bufferSize = AudioTrack.getMinBufferSize(
+                val minBuffer = AudioTrack.getMinBufferSize(
                     SAMPLE_RATE,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
-                ).coerceAtLeast(4096)
+                )
+                val bufferSize = (minBuffer * 2).coerceAtLeast(8192)
 
                 track = AudioTrack.Builder()
                     .setAudioAttributes(
@@ -91,7 +93,7 @@ object LudoAudioEngine {
                     track.play()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to play SFX track", e)
+                Log.e(TAG, "Failed to resume SFX track", e)
             }
         }
         return track
@@ -112,13 +114,14 @@ object LudoAudioEngine {
             try {
                 getSfxTrack()
                 // Pre-generate and cache all game sound samples so they are ready instantly
-                sfxCache["token_move"] = generateSequenceSamples(listOf(523.25, 783.99, 659.25), listOf(35, 35, 50), 0.10f, WaveType.SINE, 0)
-                sfxCache["token_hop"] = generateSequenceSamples(listOf(659.25, 880.00), listOf(20, 25), 0.08f, WaveType.SINE, 0)
+                sfxCache["token_move"] = generateSequenceSamples(listOf(783.99, 1046.50, 880.00), listOf(25, 25, 35), 0.12f, WaveType.SINE, 0)
+                sfxCache["token_hop"] = generateSequenceSamples(listOf(880.00, 1174.66), listOf(20, 25), 0.12f, WaveType.SINE, 0)
                 sfxCache["turn_pass"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(30, 40), 0.05f, WaveType.SINE, 0)
                 sfxCache["alert"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(80, 100), 0.10f, WaveType.SINE, 30)
-                sfxCache["dice_roll"] = generateSequenceSamples(listOf(120.0, 200.0, 160.0, 240.0, 180.0, 280.0), listOf(18, 18, 18, 18, 18, 22), 0.09f, WaveType.TRIANGLE, 0)
+                sfxCache["dice_roll"] = generateSequenceSamples(listOf(220.0, 330.0, 260.0, 390.0, 290.0, 440.0), listOf(15, 15, 15, 15, 15, 20), 0.10f, WaveType.SINE, 0)
                 sfxCache["token_captured"] = generateSequenceSamples(listOf(587.33, 493.88, 392.00, 440.00, 587.33), listOf(45, 45, 45, 45, 120), 0.12f, WaveType.SINE, 0)
                 sfxCache["token_reached_home"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 1318.51), listOf(50, 50, 50, 50, 250), 0.13f, WaveType.SINE, 0)
+                sfxCache["victory"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98), listOf(60, 60, 60, 60, 60, 60, 60, 400), 0.12f, WaveType.SINE, 0)
             } catch (e: Exception) {
                 Log.e(TAG, "Prewarm failed", e)
             }
@@ -314,42 +317,14 @@ object LudoAudioEngine {
 
     private val sfxCache = java.util.concurrent.ConcurrentHashMap<String, ShortArray>()
 
-    private fun playStaticPcm(samples: ShortArray) {
+    private fun playPcmDirect(samples: ShortArray) {
         if (!isSoundEnabled || samples.isEmpty()) return
         audioScope.launch(sfxDispatcher) {
             try {
-                val track = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_GAME)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setSampleRate(SAMPLE_RATE)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(samples.size * 2)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-
-                val written = track.write(samples, 0, samples.size)
-                if (written > 0) {
-                    track.play()
-                    val durationMs = (samples.size.toDouble() / SAMPLE_RATE * 1000).toLong()
-                    delay(durationMs + 150)
-                    try {
-                        track.stop()
-                        track.release()
-                    } catch (e: Exception) { /* ignore */ }
-                } else {
-                    track.release()
-                }
+                val track = getSfxTrack() ?: return@launch
+                track.write(samples, 0, samples.size)
             } catch (e: Exception) {
-                Log.e(TAG, "Static SFX error", e)
+                Log.e(TAG, "SFX write error", e)
             }
         }
     }
@@ -359,14 +334,14 @@ object LudoAudioEngine {
         frequencies: List<Double>,
         durationsMs: List<Int>,
         volume: Float = 0.25f,
-        type: WaveType = WaveType.TRIANGLE,
+        type: WaveType = WaveType.SINE,
         gapMs: Long = 0
     ) {
         if (!isSoundEnabled) return
         val samples = sfxCache.getOrPut(key) {
             generateSequenceSamples(frequencies, durationsMs, volume, type, gapMs)
         }
-        playStaticPcm(samples)
+        playPcmDirect(samples)
     }
 
     fun playTokenMove() {
