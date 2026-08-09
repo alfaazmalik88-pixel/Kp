@@ -1,0 +1,4 @@
+*.jar binary
+*.jks binary
+*.keystore binary
+*.so binary

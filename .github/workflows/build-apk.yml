@@ -23,8 +23,16 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Make Gradle executable
-        run: chmod +x gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure Gradle Wrapper Integrity
+        run: |
+          chmod +x gradlew
+          if ! java -jar gradle/wrapper/gradle-wrapper.jar --version > /dev/null 2>&1; then
+            echo "Wrapper JAR missing or corrupt. Regenerating wrapper..."
+            gradle wrapper --gradle-version 8.13
+          fi
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
