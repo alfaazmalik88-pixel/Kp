@@ -36,12 +36,9 @@ jobs:
           fi
           gradle wrapper --gradle-version 9.3.1
           chmod +x gradlew
-          if [ ! -f release.jks ] && [ ! -f release.keystore ]; then
-            keytool -genkeypair -v -keystore release.jks -alias ludoprime -keyalg RSA -keysize 2048 -validity 10000 -storepass ludoprime123 -keypass ludoprime123 -dname "CN=LudoPrime, OU=Mobile, O=LudoPrime, L=City, ST=State, C=IN"
-          fi
-          if [ ! -f debug.keystore ]; then
-            keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, O=Android, C=US"
-          fi
+          rm -f release.jks release.keystore debug.keystore
+          keytool -genkeypair -v -keystore release.jks -alias ludoprime -keyalg RSA -keysize 2048 -validity 10000 -storepass ludoprime123 -keypass ludoprime123 -dname "CN=LudoPrime, OU=Mobile, O=LudoPrime, L=City, ST=State, C=IN"
+          keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, O=Android, C=US"
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
