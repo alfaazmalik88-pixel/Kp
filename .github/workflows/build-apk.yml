@@ -26,14 +26,17 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
+          gradle-version: '9.3.1'
           validate-wrappers: false
 
-      - name: Ensure Gradle Wrapper Integrity
+      - name: Prepare Build Environment
         run: |
+          if [ ! -f .env ]; then
+            cp .env.example .env 2>/dev/null || touch .env
+          fi
           chmod +x gradlew
-          if ! java -jar gradle/wrapper/gradle-wrapper.jar --version > /dev/null 2>&1; then
-            echo "Wrapper JAR missing or corrupt. Regenerating wrapper..."
-            gradle wrapper --gradle-version 8.13
+          if [ ! -f release.jks ] && [ ! -f release.keystore ]; then
+            keytool -genkeypair -v -keystore release.jks -alias ludoprime -keyalg RSA -keysize 2048 -validity 10000 -storepass ludoprime123 -keypass ludoprime123 -dname "CN=LudoPrime, OU=Mobile, O=LudoPrime, L=City, ST=State, C=IN"
           fi
 
       - name: Build Debug APK
@@ -62,3 +65,4 @@ jobs:
         with:
           name: LudoPrime-Release-AAB
           path: app/build/outputs/bundle/release/*.aab
+
