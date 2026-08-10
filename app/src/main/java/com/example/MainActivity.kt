@@ -155,8 +155,9 @@ class MainActivity : ComponentActivity() {
     // Initialize user profile preferences and daily rewards
     viewModel.initPrefs(this)
     
-    // Pre-warm audio engine for instant low-latency dice roll sounds
-    LudoAudioEngine.prewarm()
+    // Pre-warm audio engine with SoundPool for instant zero-latency sound effects
+    LudoAudioEngine.init(applicationContext)
+    LudoAudioEngine.prewarm(applicationContext)
     
     // Initialize Mobile Ads SDK
     MobileAds.initialize(this) {

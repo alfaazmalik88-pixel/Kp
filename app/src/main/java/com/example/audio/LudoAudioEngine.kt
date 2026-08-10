@@ -1,12 +1,17 @@
 package com.example.audio
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.SoundPool
 import android.util.Log
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.Executors
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentHashMap
 
 enum class WaveType {
     SINE, SQUARE, TRIANGLE
@@ -16,10 +21,11 @@ object LudoAudioEngine {
     private const val TAG = "LudoAudioEngine"
     private const val SAMPLE_RATE = 44100
 
-    // Shared Coroutine Scope for BGM and SFX
     private val audioScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val sfxExecutor = Executors.newSingleThreadExecutor()
-    private val sfxDispatcher = sfxExecutor.asCoroutineDispatcher()
+
+    private var soundPool: SoundPool? = null
+    private val soundMap = ConcurrentHashMap<String, Int>()
+    private val pcmCache = ConcurrentHashMap<String, ShortArray>()
 
     private var bgmTrack: AudioTrack? = null
     private var bgmJob: Job? = null
@@ -34,36 +40,152 @@ object LudoAudioEngine {
             }
         }
 
-    private var sfxTrack: AudioTrack? = null
-
     var isSoundEnabled: Boolean = true
-        set(value) {
-            field = value
-            if (!value) {
-                releaseSfxTrack()
-            }
-        }
 
     @Synchronized
-    private fun getSfxTrack(): AudioTrack? {
-        if (!isSoundEnabled) {
-            releaseSfxTrack()
-            return null
+    fun init(context: Context) {
+        if (soundPool != null) return
+        try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+
+            soundPool = SoundPool.Builder()
+                .setMaxStreams(10)
+                .setAudioAttributes(attributes)
+                .build()
+
+            audioScope.launch(Dispatchers.IO) {
+                prewarmInternal(context.applicationContext)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "SoundPool init failed", e)
         }
-        var track = sfxTrack
-        if (track == null || track.state != AudioTrack.STATE_INITIALIZED) {
+    }
+
+    fun prewarm(context: Context? = null) {
+        if (context != null) {
+            init(context)
+        } else {
+            audioScope.launch(Dispatchers.Default) {
+                generateAllSfxPcm()
+            }
+        }
+    }
+
+    private fun generateAllSfxPcm() {
+        if (pcmCache.containsKey("token_move")) return
+        pcmCache["token_move"] = generateSequenceSamples(listOf(783.99, 1046.50, 880.00), listOf(25, 25, 35), 0.14f, WaveType.SINE, 0)
+        pcmCache["token_hop"] = generateSequenceSamples(listOf(880.00, 1174.66), listOf(20, 25), 0.14f, WaveType.SINE, 0)
+        pcmCache["turn_pass"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(30, 40), 0.05f, WaveType.SINE, 0)
+        pcmCache["alert"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(80, 100), 0.10f, WaveType.SINE, 30)
+        pcmCache["dice_roll"] = generateSequenceSamples(listOf(120.0, 200.0, 160.0, 240.0, 180.0, 280.0), listOf(18, 18, 18, 18, 18, 22), 0.09f, WaveType.TRIANGLE, 0)
+        pcmCache["token_captured"] = generateSequenceSamples(listOf(587.33, 493.88, 392.00, 440.00, 587.33), listOf(45, 45, 45, 45, 120), 0.12f, WaveType.SINE, 0)
+        pcmCache["token_reached_home"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 1318.51), listOf(50, 50, 50, 50, 250), 0.13f, WaveType.SINE, 0)
+        pcmCache["victory"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98), listOf(60, 60, 60, 60, 60, 60, 60, 400), 0.12f, WaveType.SINE, 0)
+    }
+
+    private fun prewarmInternal(context: Context) {
+        generateAllSfxPcm()
+        val pool = soundPool ?: return
+
+        pcmCache.forEach { (key, pcmData) ->
             try {
-                track?.release()
-            } catch (e: Exception) {}
+                val file = File(context.cacheDir, "sfx_$key.wav")
+                writePcmToWavFile(file, pcmData, SAMPLE_RATE)
+                val soundId = pool.load(file.absolutePath, 1)
+                soundMap[key] = soundId
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load SFX $key into SoundPool", e)
+            }
+        }
+    }
+
+    private fun writePcmToWavFile(file: File, pcmData: ShortArray, sampleRate: Int) {
+        val totalAudioLen = pcmData.size * 2
+        val totalDataLen = totalAudioLen + 36
+        val byteRate = sampleRate * 1 * 2
+
+        val header = ByteArray(44)
+        header[0] = 'R'.code.toByte()
+        header[1] = 'I'.code.toByte()
+        header[2] = 'F'.code.toByte()
+        header[3] = 'F'.code.toByte()
+        header[4] = (totalDataLen and 0xff).toByte()
+        header[5] = ((totalDataLen shr 8) and 0xff).toByte()
+        header[6] = ((totalDataLen shr 16) and 0xff).toByte()
+        header[7] = ((totalDataLen shr 24) and 0xff).toByte()
+        header[8] = 'W'.code.toByte()
+        header[9] = 'A'.code.toByte()
+        header[10] = 'V'.code.toByte()
+        header[11] = 'E'.code.toByte()
+        header[12] = 'f'.code.toByte()
+        header[13] = 'm'.code.toByte()
+        header[14] = 't'.code.toByte()
+        header[15] = ' '.code.toByte()
+        header[16] = 16
+        header[17] = 0
+        header[18] = 0
+        header[19] = 0
+        header[20] = 1
+        header[21] = 0
+        header[22] = 1
+        header[23] = 0
+        header[24] = (sampleRate and 0xff).toByte()
+        header[25] = ((sampleRate shr 8) and 0xff).toByte()
+        header[26] = ((sampleRate shr 16) and 0xff).toByte()
+        header[27] = ((sampleRate shr 24) and 0xff).toByte()
+        header[28] = (byteRate and 0xff).toByte()
+        header[29] = ((byteRate shr 8) and 0xff).toByte()
+        header[30] = ((byteRate shr 16) and 0xff).toByte()
+        header[31] = ((byteRate shr 24) and 0xff).toByte()
+        header[32] = 2
+        header[33] = 0
+        header[34] = 16
+        header[35] = 0
+        header[36] = 'd'.code.toByte()
+        header[37] = 'a'.code.toByte()
+        header[38] = 't'.code.toByte()
+        header[39] = 'a'.code.toByte()
+        header[40] = (totalAudioLen and 0xff).toByte()
+        header[41] = ((totalAudioLen shr 8) and 0xff).toByte()
+        header[42] = ((totalAudioLen shr 16) and 0xff).toByte()
+        header[43] = ((totalAudioLen shr 24) and 0xff).toByte()
+
+        FileOutputStream(file).use { fos ->
+            fos.write(header)
+            val byteBuffer = ByteBuffer.allocate(pcmData.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+            for (sample in pcmData) {
+                byteBuffer.putShort(sample)
+            }
+            fos.write(byteBuffer.array())
+        }
+    }
+
+    private fun playSfx(key: String, volume: Float = 1.0f) {
+        if (!isSoundEnabled) return
+        val pool = soundPool
+        val soundId = soundMap[key]
+        if (pool != null && soundId != null && soundId != 0) {
+            pool.play(soundId, volume, volume, 1, 0, 1.0f)
+        } else {
+            // Fallback: play directly using AudioTrack without clicks
+            playPcmDirect(key)
+        }
+    }
+
+    private fun playPcmDirect(key: String) {
+        if (!isSoundEnabled) return
+        val pcm = pcmCache[key] ?: return
+        audioScope.launch(Dispatchers.Default) {
             try {
-                val minBuffer = AudioTrack.getMinBufferSize(
+                val minBuf = AudioTrack.getMinBufferSize(
                     SAMPLE_RATE,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
                 )
-                val bufferSize = (minBuffer * 2).coerceAtLeast(8192)
-
-                track = AudioTrack.Builder()
+                val track = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
                             .setUsage(AudioAttributes.USAGE_GAME)
@@ -77,68 +199,37 @@ object LudoAudioEngine {
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(bufferSize)
-                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .setBufferSizeInBytes((minBuf * 2).coerceAtLeast(pcm.size * 2))
+                    .setTransferMode(AudioTrack.MODE_STATIC)
                     .build()
-                
+
+                track.write(pcm, 0, pcm.size)
                 track.play()
-                sfxTrack = track
+                delay((pcm.size * 1000L / SAMPLE_RATE) + 100L)
+                track.stop()
+                track.release()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to create SFX track", e)
-                track = null
-            }
-        } else {
-            try {
-                if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
-                    track.play()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to resume SFX track", e)
+                Log.e(TAG, "AudioTrack direct play error", e)
             }
         }
-        return track
     }
 
     fun releaseSfxTrack() {
-        sfxTrack?.let {
-            try {
-                it.stop()
-                it.release()
-            } catch (e: Exception) {}
-        }
-        sfxTrack = null
-    }
-
-    fun prewarm() {
-        audioScope.launch(sfxDispatcher) {
-            try {
-                getSfxTrack()
-                // Pre-generate and cache all game sound samples so they are ready instantly
-                sfxCache["token_move"] = generateSequenceSamples(listOf(783.99, 1046.50, 880.00), listOf(25, 25, 35), 0.12f, WaveType.SINE, 0)
-                sfxCache["token_hop"] = generateSequenceSamples(listOf(880.00, 1174.66), listOf(20, 25), 0.12f, WaveType.SINE, 0)
-                sfxCache["turn_pass"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(30, 40), 0.05f, WaveType.SINE, 0)
-                sfxCache["alert"] = generateSequenceSamples(listOf(783.99, 880.00), listOf(80, 100), 0.10f, WaveType.SINE, 30)
-                sfxCache["dice_roll"] = generateSequenceSamples(listOf(220.0, 330.0, 260.0, 390.0, 290.0, 440.0), listOf(15, 15, 15, 15, 15, 20), 0.10f, WaveType.SINE, 0)
-                sfxCache["token_captured"] = generateSequenceSamples(listOf(587.33, 493.88, 392.00, 440.00, 587.33), listOf(45, 45, 45, 45, 120), 0.12f, WaveType.SINE, 0)
-                sfxCache["token_reached_home"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 1318.51), listOf(50, 50, 50, 50, 250), 0.13f, WaveType.SINE, 0)
-                sfxCache["victory"] = generateSequenceSamples(listOf(523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98), listOf(60, 60, 60, 60, 60, 60, 60, 400), 0.12f, WaveType.SINE, 0)
-            } catch (e: Exception) {
-                Log.e(TAG, "Prewarm failed", e)
-            }
-        }
+        soundPool?.autoPause()
     }
 
     fun startBgm() {
         if (!isMusicEnabled) return
         if (bgmJob != null && bgmJob?.isActive == true) return
 
-        bgmJob = audioScope.launch {
+        bgmJob = audioScope.launch(Dispatchers.Default) {
             try {
-                val bufferSize = AudioTrack.getMinBufferSize(
+                val minBuffer = AudioTrack.getMinBufferSize(
                     SAMPLE_RATE,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
-                ).coerceAtLeast(4096)
+                )
+                val bufferSize = (minBuffer * 4).coerceAtLeast(8192)
 
                 val track = AudioTrack.Builder()
                     .setAudioAttributes(
@@ -161,31 +252,42 @@ object LudoAudioEngine {
                 bgmTrack = track
                 track.play()
 
-                // Ultra-soft, slow, calming music-box ambient progression using pure Sine waves
                 val melody = listOf(
-                    Note(523.25, 1000), // C5
-                    Note(587.33, 1000), // D5
-                    Note(659.25, 1200), // E5
-                    Note(783.99, 1500), // G5
-                    Note(659.25, 1000), // E5
-                    Note(587.33, 1000), // D5
-                    Note(523.25, 1800), // C5
-                    Note(440.00, 1000), // A4
-                    Note(523.25, 1000), // C5
-                    Note(587.33, 1000), // D5
-                    Note(783.99, 1200), // G5
-                    Note(880.00, 1800), // A5 (sweet bell)
-                    Note(783.99, 1200), // G5
-                    Note(659.25, 1000), // E5
-                    Note(587.33, 1800)  // D5
+                    Note(523.25, 900),  // C5
+                    Note(587.33, 900),  // D5
+                    Note(659.25, 1100), // E5
+                    Note(783.99, 1400), // G5
+                    Note(659.25, 900),  // E5
+                    Note(587.33, 900),  // D5
+                    Note(523.25, 1600), // C5
+                    Note(440.00, 900),  // A4
+                    Note(523.25, 900),  // C5
+                    Note(587.33, 900),  // D5
+                    Note(783.99, 1100), // G5
+                    Note(880.00, 1600), // A5
+                    Note(783.99, 1100), // G5
+                    Note(659.25, 900),  // E5
+                    Note(587.33, 1600)  // D5
                 )
 
                 var noteIndex = 0
                 while (isActive && isMusicEnabled) {
                     val note = melody[noteIndex]
-                    writeToneToTrack(track, note.frequency, note.durationMs, volume = 0.025f, type = WaveType.SINE)
+                    
+                    // Generate note samples with smooth 0-crossing envelope
+                    val noteSamples = generateToneSamples(note.frequency, note.durationMs, volume = 0.025f, WaveType.SINE)
+                    if (noteSamples.isNotEmpty() && isActive) {
+                        track.write(noteSamples, 0, noteSamples.size)
+                    }
+
+                    // Write smooth silence frames instead of delay to PREVENT buffer underrun popping!
+                    val silenceSamplesCount = (SAMPLE_RATE * 0.25).toInt()
+                    val silenceSamples = ShortArray(silenceSamplesCount)
+                    if (isActive) {
+                        track.write(silenceSamples, 0, silenceSamples.size)
+                    }
+
                     noteIndex = (noteIndex + 1) % melody.size
-                    delay(note.durationMs.toLong() + 300L) // Beautiful spacious pause after note completes
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "BGM Error", e)
@@ -211,18 +313,18 @@ object LudoAudioEngine {
         bgmTrack = null
     }
 
-    private fun writeToneToTrack(
-        track: AudioTrack,
+    private fun generateToneSamples(
         frequency: Double,
         durationMs: Int,
         volume: Float,
         type: WaveType
-    ) {
+    ): ShortArray {
         val numSamples = (SAMPLE_RATE * (durationMs / 1000.0)).toInt()
+        if (numSamples <= 0) return ShortArray(0)
         val samples = ShortArray(numSamples)
 
-        val attackSamples = (numSamples * 0.15).toInt()
-        val decaySamples = (numSamples * 0.85).toInt()
+        val attackSamples = (numSamples * 0.15).toInt().coerceAtLeast(32)
+        val decaySamples = (numSamples - attackSamples).coerceAtLeast(32)
 
         for (i in 0 until numSamples) {
             val t = i.toDouble() / SAMPLE_RATE
@@ -236,19 +338,17 @@ object LudoAudioEngine {
                 }
             }
 
-            // Envelope
+            // Smooth Hann envelope
             val env = when {
-                i < attackSamples -> (i.toFloat() / attackSamples)
-                else -> (1.0f - (i - attackSamples).toFloat() / decaySamples).coerceIn(0f, 1f)
+                i < attackSamples -> 0.5f * (1.0f - Math.cos(Math.PI * i / attackSamples).toFloat())
+                else -> 0.5f * (1.0f + Math.cos(Math.PI * (i - attackSamples) / decaySamples).toFloat())
             }
 
             samples[i] = (waveVal * Short.MAX_VALUE * volume * env).toInt()
                 .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
-        track.write(samples, 0, numSamples)
+        return samples
     }
-
-    private val sfxMutex = kotlinx.coroutines.sync.Mutex()
 
     private fun generateSequenceSamples(
         frequencies: List<Double>,
@@ -275,8 +375,8 @@ object LudoAudioEngine {
             val dur = durationsMs[i]
             val numSamples = (SAMPLE_RATE * (dur / 1000.0)).toInt()
 
-            val attackSamples = (numSamples * 0.10).toInt().coerceAtLeast(1)
-            val decaySamples = (numSamples - attackSamples).coerceAtLeast(1)
+            val attackSamples = (numSamples * 0.10).toInt().coerceAtLeast(16)
+            val decaySamples = (numSamples - attackSamples).coerceAtLeast(16)
 
             for (j in 0 until numSamples) {
                 if (currentIndex >= totalSamples) break
@@ -315,91 +415,36 @@ object LudoAudioEngine {
         return samples
     }
 
-    private val sfxCache = java.util.concurrent.ConcurrentHashMap<String, ShortArray>()
-
-    private fun playPcmDirect(samples: ShortArray) {
-        if (!isSoundEnabled || samples.isEmpty()) return
-        audioScope.launch(sfxDispatcher) {
-            try {
-                val track = getSfxTrack() ?: return@launch
-                track.write(samples, 0, samples.size)
-            } catch (e: Exception) {
-                Log.e(TAG, "SFX write error", e)
-            }
-        }
-    }
-
-    private fun playSequenceCached(
-        key: String,
-        frequencies: List<Double>,
-        durationsMs: List<Int>,
-        volume: Float = 0.25f,
-        type: WaveType = WaveType.SINE,
-        gapMs: Long = 0
-    ) {
-        if (!isSoundEnabled) return
-        val samples = sfxCache.getOrPut(key) {
-            generateSequenceSamples(frequencies, durationsMs, volume, type, gapMs)
-        }
-        playPcmDirect(samples)
-    }
-
     fun playTokenMove() {
-        // High, cozy, crisp token move sound (pure sine wave, clear resonant chime)
-        playSequenceCached("token_move", listOf(783.99, 1046.50, 880.00), listOf(25, 25, 35), volume = 0.14f, type = WaveType.SINE)
+        playSfx("token_move")
     }
 
     fun playTokenHop() {
-        // Very short, crisp single hop sound (pure sine wave, crystal wooden tap)
-        playSequenceCached("token_hop", listOf(880.00, 1174.66), listOf(20, 25), volume = 0.14f, type = WaveType.SINE)
+        playSfx("token_hop")
     }
 
     fun playTurnPass() {
-        // Extremely subtle, polite double-chime to signify next turn
-        playSequenceCached("turn_pass", listOf(783.99, 880.00), listOf(30, 40), volume = 0.05f, type = WaveType.SINE)
+        playSfx("turn_pass", volume = 0.5f)
     }
 
     fun playAlert() {
-        // Soft digital double-chime
-        playSequenceCached("alert", listOf(783.99, 880.00), listOf(80, 100), volume = 0.10f, type = WaveType.SINE, gapMs = 30)
+        playSfx("alert")
     }
 
     fun playDiceRoll() {
-        // Fast, satisfyingly lightweight tactile wooden/marble click-clack roll
-        playSequenceCached("dice_roll", listOf(120.0, 200.0, 160.0, 240.0, 180.0, 280.0), listOf(18, 18, 18, 18, 18, 22), volume = 0.09f, type = WaveType.TRIANGLE)
+        playSfx("dice_roll")
     }
 
     fun playTokenCaptured() {
-        // Playful, cute bouncy slide-back arpeggio - soft, comforting, and absolutely non-irritating!
-        playSequenceCached(
-            "token_captured",
-            listOf(587.33, 493.88, 392.00, 440.00, 587.33),
-            listOf(45, 45, 45, 45, 120),
-            volume = 0.12f,
-            type = WaveType.SINE
-        )
+        playSfx("token_captured")
     }
 
     fun playTokenReachedHome() {
-        // A magical, sparkling crystal chime cascade when a token successfully reaches home - highly rewarding!
-        playSequenceCached(
-            "token_reached_home",
-            listOf(523.25, 659.25, 783.99, 1046.50, 1318.51),
-            listOf(50, 50, 50, 50, 250),
-            volume = 0.13f,
-            type = WaveType.SINE
-        )
+        playSfx("token_reached_home")
     }
 
     fun playVictory() {
-        // Grand, elegant, soft celebratory chime song when a player completely wins the match
-        playSequenceCached(
-            "victory",
-            listOf(523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98),
-            listOf(60, 60, 60, 60, 60, 60, 60, 400),
-            volume = 0.12f,
-            type = WaveType.SINE
-        )
+        playSfx("victory")
     }
 
     private data class Note(val frequency: Double, val durationMs: Int)
