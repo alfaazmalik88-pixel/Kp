@@ -6,144 +6,137 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 1. Elegant shadow layer for the crown -->
+    <!-- Center Emblem Shield Outer Shadow -->
     <path
-        android:fillColor="#44000000"
-        android:pathData="M 30,70 L 30,52 L 43,60 L 56,34 L 69,60 L 82,52 L 82,70 Z" />
+        android:pathData="M 54,54 m -38,0 a 38,38 0,1 1,76 0 a 38,38 0,1 1,-76 0"
+        android:fillColor="#66000000" />
 
-    <!-- 2. Main Golden Crown Body with a rich golden gradient -->
+    <!-- Outer Gold Ring -->
     <path
-        android:pathData="M 28,68 L 28,50 L 41,58 L 54,32 L 67,58 L 80,50 L 80,68 Z">
+        android:pathData="M 54,54 m -36,0 a 36,36 0,1 1,72 0 a 36,36 0,1 1,-72 0">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="28"
-                android:startY="32"
-                android:endX="80"
-                android:endY="68"
+                android:startX="18"
+                android:startY="18"
+                android:endX="90"
+                android:endY="90"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FFE082" /> <!-- Rich Light Gold -->
-                <item android:offset="0.5" android:color="#F59E0B" /> <!-- Amber Gold -->
-                <item android:offset="1.0" android:color="#D97706" /> <!-- Deep Gold -->
+                <item android:offset="0.0" android:color="#FDE047" /> <!-- Light Yellow Gold -->
+                <item android:offset="0.5" android:color="#D97706" /> <!-- Golden Amber -->
+                <item android:offset="1.0" android:color="#78350F" /> <!-- Dark Gold -->
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 3. Curved Base band of the crown -->
+    <!-- Inner Dark Navy Center Circle -->
     <path
-        android:pathData="M 28,64 Q 54,68 80,64 L 80,68 Q 54,72 28,68 Z">
+        android:pathData="M 54,54 m -32,0 a 32,32 0,1 1,64 0 a 32,32 0,1 1,-64 0">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="28"
-                android:startY="64"
-                android:endX="80"
-                android:endY="72"
+                android:startX="22"
+                android:startY="22"
+                android:endX="86"
+                android:endY="86"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#D97706" />
+                <item android:offset="0.0" android:color="#1E1B4B" /> <!-- Royal Dark Blue -->
+                <item android:offset="1.0" android:color="#0A0E1A" /> <!-- Midnight Black-Blue -->
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Inner Gold Accent Ring -->
+    <path
+        android:pathData="M 54,54 m -30,0 a 30,30 0,1 1,60 0 a 30,30 0,1 1,-60 0"
+        android:strokeWidth="1"
+        android:strokeColor="#FDE047" />
+
+    <!-- Majestic Golden Crown -->
+    <!-- Crown Base Band Shadow -->
+    <path
+        android:pathData="M 33,48 L 33,35 L 43,42 L 54,23 L 65,42 L 75,35 L 75,48 Z"
+        android:fillColor="#33000000" />
+
+    <!-- Crown Main Body with Gold Gradient -->
+    <path
+        android:pathData="M 32,46 L 32,33 L 43,40 L 54,21 L 65,40 L 76,33 L 76,46 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="32"
+                android:startY="21"
+                android:endX="76"
+                android:endY="46"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FEF08A" />
                 <item android:offset="0.5" android:color="#F59E0B" />
                 <item android:offset="1.0" android:color="#B45309" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- 4. Jewel tips (Golden Spheres at the top of the spikes) -->
-    <!-- Left Spike Sphere -->
+    <!-- Crown Base Curved Belt -->
     <path
-        android:pathData="M 28,50 m -4,0 a 4,4 0,1 1,8 0 a 4,4 0,1 1,-8 0">
+        android:pathData="M 32,43 Q 54,47 76,43 L 76,47 Q 54,51 32,47 Z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="24"
-                android:startY="46"
-                android:endX="32"
-                android:endY="54"
+                android:startX="32"
+                android:startY="43"
+                android:endX="76"
+                android:endY="51"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FFE082" />
-                <item android:offset="1.0" android:color="#D97706" />
+                <item android:offset="0.0" android:color="#FDE047" />
+                <item android:offset="1.0" android:color="#92400E" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Right Spike Sphere -->
-    <path
-        android:pathData="M 80,50 m -4,0 a 4,4 0,1 1,8 0 a 4,4 0,1 1,-8 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="76"
-                android:startY="46"
-                android:endX="84"
-                android:endY="54"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#FFE082" />
-                <item android:offset="1.0" android:color="#D97706" />
-            </gradient>
-        </aapt:attr>
-    </path>
+    <!-- Crown Top Golden Spheres -->
+    <!-- Left Sphere -->
+    <path android:pathData="M 32,33 m -3,0 a 3,3 0,1 1,6 0 a 3,3 0,1 1,-6 0" android:fillColor="#FDE047" />
+    <!-- Center Big Sphere -->
+    <path android:pathData="M 54,21 m -4.5,0 a 4.5,4.5 0,1 1,9 0 a 4.5,4.5 0,1 1,-9 0" android:fillColor="#FEF08A" />
+    <!-- Right Sphere -->
+    <path android:pathData="M 76,33 m -3,0 a 3,3 0,1 1,6 0 a 3,3 0,1 1,-6 0" android:fillColor="#FDE047" />
 
-    <!-- Center Spike Sphere -->
-    <path
-        android:pathData="M 54,32 m -5.5,0 a 5.5,5.5 0,1 1,11 0 a 5.5,5.5 0,1 1,-11 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:startX="48.5"
-                android:startY="26.5"
-                android:endX="59.5"
-                android:endY="37.5"
-                android:type="linear">
-                <item android:offset="0.0" android:color="#FDE047" /> <!-- Yellow Gold -->
-                <item android:offset="1.0" android:color="#D97706" />
-            </gradient>
-        </aapt:attr>
-    </path>
+    <!-- Center Ruby Diamond Gem -->
+    <path android:pathData="M 54,30 L 58,35 L 54,40 L 50,35 Z" android:fillColor="#DC2626" />
+    <path android:pathData="M 54,30 L 56,35 L 54,37.5 L 52,35 Z" android:fillColor="#FCA5A5" />
 
-    <!-- 5. Royal Gemstones in the crown -->
-    <!-- Center Ruby Diamond Gemstone -->
-    <path
-        android:fillColor="#E11D48"
-        android:pathData="M 54,42 L 59,47 L 54,52 L 49,47 Z" />
-    <path
-        android:fillColor="#FDA4AF"
-        android:pathData="M 54,42 L 56.5,47 L 54,49.5 L 51.5,47 Z" />
+    <!-- Side Emerald Gem -->
+    <path android:pathData="M 38,39 L 40,41 L 38,43 L 36,41 Z" android:fillColor="#16A34A" />
 
-    <!-- Left Emerald Gemstone -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M 35,53 L 38,55 L 35,57 L 32,55 Z" />
+    <!-- Side Sapphire Gem -->
+    <path android:pathData="M 70,39 L 72,41 L 70,43 L 68,41 Z" android:fillColor="#2563EB" />
 
-    <!-- Right Sapphire Gemstone -->
-    <path
-        android:fillColor="#3B82F6"
-        android:pathData="M 73,53 L 76,55 L 73,57 L 70,55 Z" />
+    <!-- GOLDEN "CROWN" TEXT GRAPHIC -->
+    <!-- "CROWN" Letter C -->
+    <path android:pathData="M 31,54 Q 31,52 33,52 Q 35,52 35,53 L 33.8,53.5 Q 33.3,52.8 33,52.8 Q 32.2,52.8 32.2,54 Q 32.2,55.2 33,55.2 Q 33.3,55.2 33.8,54.5 L 35,55 Q 35,56 33,56 Q 31,56 31,54 Z" android:fillColor="#FDE047" />
+    <!-- Letter R -->
+    <path android:pathData="M 36.5,52 L 39,52 Q 40.5,52 40.5,53.2 Q 40.5,54 39.5,54.2 L 40.8,56 L 39.3,56 L 38.2,54.4 L 37.8,54.4 L 37.8,56 L 36.5,56 Z M 37.8,53.2 L 38.8,53.2 Q 39.3,53.2 39.3,53.7 Q 39.3,54.2 38.8,54.2 L 37.8,54.2 Z" android:fillColor="#FDE047" />
+    <!-- Letter O -->
+    <path android:pathData="M 42,54 Q 42,52 44,52 Q 46,52 46,54 Q 46,56 44,56 Q 42,56 42,54 Z M 43.3,54 Q 43.3,55.1 44,55.1 Q 44.7,55.1 44.7,54 Q 44.7,52.9 44,52.9 Q 43.3,52.9 43.3,54 Z" android:fillColor="#FDE047" />
+    <!-- Letter W -->
+    <path android:pathData="M 47.5,52 L 48.8,52 L 49.6,55.2 L 50.4,52 L 51.6,52 L 52.4,55.2 L 53.2,52 L 54.5,52 L 53.3,56 L 52,56 L 51,53.2 L 50,56 L 48.7,56 Z" android:fillColor="#FDE047" />
+    <!-- Letter N -->
+    <path android:pathData="M 56,52 L 57.5,52 L 59.5,54.8 L 59.5,52 L 60.8,52 L 60.8,56 L 59.3,56 L 57.3,53.2 L 57.3,56 L 56,56 Z" android:fillColor="#FDE047" />
 
-    <!-- 6. Four Shiny Ludo Goti / Pieces below the crown -->
-    <!-- Red Goti -->
-    <path
-        android:fillColor="#EF4444"
-        android:pathData="M 34,79 m -4.5,0 a 4.5,4.5 0,1 1,9 0 a 4.5,4.5 0,1 1,-9 0" />
-    <path
-        android:fillColor="#FEE2E2"
-        android:pathData="M 32.5,77.5 m -1.5,0 a 1.5,1.5 0,1 1,3 0 a 1.5,1.5 0,1 1,-3 0" />
+    <!-- "LUDO" STYLIZED COLORFUL EMBLEM LETTERS -->
+    <!-- 'L' (Blue with Gold Outline) -->
+    <path android:pathData="M 33,61 L 37.5,61 L 37.5,63.2 L 41.5,63.2 L 41.5,66 L 33,66 Z" android:fillColor="#2563EB" />
+    <path android:pathData="M 33,61 L 37.5,61 L 37.5,63.2 L 41.5,63.2 L 41.5,66 L 33,66 Z" android:strokeWidth="0.8" android:strokeColor="#FDE047" />
 
-    <!-- Green Goti -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M 47,79 m -4.5,0 a 4.5,4.5 0,1 1,9 0 a 4.5,4.5 0,1 1,-9 0" />
-    <path
-        android:fillColor="#D1FAE5"
-        android:pathData="M 45.5,77.5 m -1.5,0 a 1.5,1.5 0,1 1,3 0 a 1.5,1.5 0,1 1,-3 0" />
+    <!-- 'U' (Red with Gold Outline) -->
+    <path android:pathData="M 43,61 L 46,61 L 46,64.2 Q 46,65 47,65 Q 48,65 48,64.2 L 48,61 L 51,61 L 51,64.2 Q 51,66.5 47,66.5 Q 43,66.5 43,64.2 Z" android:fillColor="#DC2626" />
+    <path android:pathData="M 43,61 L 46,61 L 46,64.2 Q 46,65 47,65 Q 48,65 48,64.2 L 48,61 L 51,61 L 51,64.2 Q 51,66.5 47,66.5 Q 43,66.5 43,64.2 Z" android:strokeWidth="0.8" android:strokeColor="#FDE047" />
 
-    <!-- Yellow Goti -->
-    <path
-        android:fillColor="#F59E0B"
-        android:pathData="M 61,79 m -4.5,0 a 4.5,4.5 0,1 1,9 0 a 4.5,4.5 0,1 1,-9 0" />
-    <path
-        android:fillColor="#FEF3C7"
-        android:pathData="M 59.5,77.5 m -1.5,0 a 1.5,1.5 0,1 1,3 0 a 1.5,1.5 0,1 1,-3 0" />
+    <!-- 'D' (Green with Gold Outline) -->
+    <path android:pathData="M 52.5,61 L 57 Q 61,61 61,63.7 Q 61,66.5 57,66.5 L 52.5,66.5 Z M 55,62.8 L 55,64.8 L 56.8,64.8 Q 58.3,64.8 58.3,63.8 Q 58.3,62.8 56.8,62.8 Z" android:fillColor="#16A34A" />
+    <path android:pathData="M 52.5,61 L 57 Q 61,61 61,63.7 Q 61,66.5 57,66.5 L 52.5,66.5 Z M 55,62.8 L 55,64.8 L 56.8,64.8 Q 58.3,64.8 58.3,63.8 Q 58.3,62.8 56.8,62.8 Z" android:strokeWidth="0.8" android:strokeColor="#FDE047" />
 
-    <!-- Blue Goti -->
-    <path
-        android:fillColor="#3B82F6"
-        android:pathData="M 74,79 m -4.5,0 a 4.5,4.5 0,1 1,9 0 a 4.5,4.5 0,1 1,-9 0" />
-    <path
-        android:fillColor="#DBEAFE"
-        android:pathData="M 72.5,77.5 m -1.5,0 a 1.5,1.5 0,1 1,3 0 a 1.5,1.5 0,1 1,-3 0" />
+    <!-- 'O' (Yellow with Gold Outline) -->
+    <path android:pathData="M 62.5,63.7 Q 62.5,61 66,61 Q 69.5,61 69.5,63.7 Q 69.5,66.5 66,66.5 Q 62.5,66.5 62.5,63.7 Z M 65,63.7 Q 65,64.8 66,64.8 Q 67,64.8 67,63.7 Q 67,62.7 66,62.7 Q 65,62.7 65,63.7 Z" android:fillColor="#CA8A04" />
+    <path android:pathData="M 62.5,63.7 Q 62.5,61 66,61 Q 69.5,61 69.5,63.7 Q 69.5,66.5 66,66.5 Q 62.5,66.5 62.5,63.7 Z M 65,63.7 Q 65,64.8 66,64.8 Q 67,64.8 67,63.7 Q 67,62.7 66,62.7 Q 65,62.7 65,63.7 Z" android:strokeWidth="0.8" android:strokeColor="#FDE047" />
+
+    <!-- Gold Accent Star below logo -->
+    <path android:pathData="M 54,71 L 55.2,73.5 L 58,73.9 L 56,75.8 L 56.5,78.5 L 54,77.2 L 51.5,78.5 L 52,75.8 L 50,73.9 L 52.8,73.5 Z" android:fillColor="#FDE047" />
 
 </vector>
