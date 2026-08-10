@@ -39,15 +39,18 @@ jobs:
           if [ ! -f release.jks ] && [ ! -f release.keystore ]; then
             keytool -genkeypair -v -keystore release.jks -alias ludoprime -keyalg RSA -keysize 2048 -validity 10000 -storepass ludoprime123 -keypass ludoprime123 -dname "CN=LudoPrime, OU=Mobile, O=LudoPrime, L=City, ST=State, C=IN"
           fi
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug, O=Android, C=US"
+          fi
 
       - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Build Release APK
-        run: gradle assembleRelease --stacktrace
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Build Release AAB Bundle
-        run: gradle bundleRelease --stacktrace
+        run: ./gradlew bundleRelease --stacktrace
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4

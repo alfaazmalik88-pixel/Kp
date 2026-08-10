@@ -25,10 +25,22 @@ android {
 
   signingConfigs {
     create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
+      val dbgFile = file("${rootDir}/debug.keystore")
+      val relJks = file("${rootDir}/release.jks")
+      when {
+        dbgFile.exists() -> {
+          storeFile = dbgFile
+          storePassword = "android"
+          keyAlias = "androiddebugkey"
+          keyPassword = "android"
+        }
+        relJks.exists() -> {
+          storeFile = relJks
+          storePassword = "ludoprime123"
+          keyAlias = "ludoprime"
+          keyPassword = "ludoprime123"
+        }
+      }
     }
     create("release") {
       val customPath = System.getenv("KEYSTORE_PATH")
@@ -41,6 +53,7 @@ android {
       } else {
         val relJks = file("${rootDir}/release.jks")
         val relKeystore = file("${rootDir}/release.keystore")
+        val dbgFile = file("${rootDir}/debug.keystore")
         when {
           relJks.exists() -> {
             storeFile = relJks
@@ -54,8 +67,8 @@ android {
             keyAlias = "ludoprime"
             keyPassword = "ludoprime123"
           }
-          else -> {
-            storeFile = file("${rootDir}/debug.keystore")
+          dbgFile.exists() -> {
+            storeFile = dbgFile
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
